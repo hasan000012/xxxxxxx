@@ -660,7 +660,12 @@
       .catch(function () {});
   }
 
-  function _resolveVid() { return state.retailVariantId; }
+  function _resolveVid() {
+    if (state.modalMode === 'wholesale' && state.wsVariantId) {
+      return state.wsVariantId;
+    }
+    return state.retailVariantId;
+  }
 
   function _directAddToCart(btn) {
     var card = btn.closest('.xuw-card');

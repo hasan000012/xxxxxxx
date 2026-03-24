@@ -8,14 +8,57 @@
 <div class="cart-totals">
   {% # We need to keep this node in place to allow morphing to work properly # %}
   <div class="cart-totals__original-container cart-primary-typography">
-    {%- if cart.cart_level_discount_applications.size > 0 -%}
+    {%- liquid
+      assign total_line_discount = 0
+      for item in cart.items
+        assign total_line_discount = total_line_discount | plus: item.line_level_total_discount
+      endfor
+
+      assign total_ws_savings = 0
+      for item in cart.items
+        assign cs_vt_lower = item.variant.title | downcase
+        if cs_vt_lower == 'wholesale'
+          assign ws_rv = nil
+          for v in item.product.variants
+            assign cs_rv_lower = v.title | downcase
+            if cs_rv_lower != 'wholesale' and ws_rv == nil
+              assign ws_rv = v
+            endif
+          endfor
+          if ws_rv != nil and ws_rv.price > item.original_price
+            assign ws_item_saving = ws_rv.price | minus: item.original_price | times: item.quantity
+            assign total_ws_savings = total_ws_savings | plus: ws_item_saving
+          endif
+        endif
+      endfor
+
+      assign has_line_discounts = false
+      if total_line_discount > 0
+        assign has_line_discounts = true
+      endif
+      assign has_ws_savings = false
+      if total_ws_savings > 0
+        assign has_ws_savings = true
+      endif
+      assign has_any_discounts = false
+      if cart.cart_level_discount_applications.size > 0 or has_line_discounts or has_ws_savings
+        assign has_any_discounts = true
+      endif
+
+      if has_ws_savings
+        assign retail_subtotal = cart.items_subtotal_price | plus: total_ws_savings
+      else
+        assign retail_subtotal = cart.items_subtotal_price
+      endif
+    -%}
+    {%- if has_any_discounts -%}
       <span class="cart-totals__item cart-totals__original">
         <span class="cart-totals__original-label">{{ 'content.cart_subtotal' | t }}</span>
         <span
           class="cart-totals__original-value cart-secondary-typography"
           data-testid="cart-subtotal-value"
         >
-          {{- cart.items_subtotal_price | money -}}
+          {{- retail_subtotal | money -}}
         </span>
       </span>
       <ul
@@ -23,6 +66,32 @@
         role="list"
         aria-label="{{ 'content.discounts' | t }}"
       >
+        {%- if has_ws_savings -%}
+          <li class="cart-discounts__item">
+            <span class="cart-discounts__label">
+              {{- 'icon-discount.svg' | inline_asset_content -}}
+              Wholesale Savings
+            </span>
+            <span class="cart-discounts__value cart-secondary-typography"
+              >-{{ total_ws_savings | money -}}
+            </span>
+          </li>
+        {%- endif -%}
+        {%- if has_line_discounts -%}
+          {%- for item in cart.items -%}
+            {%- for discount in item.line_level_discount_allocations -%}
+              <li class="cart-discounts__item">
+                <span class="cart-discounts__label">
+                  {{- 'icon-discount.svg' | inline_asset_content -}}
+                  {{ discount.discount_application.title | escape }}
+                </span>
+                <span class="cart-discounts__value cart-secondary-typography"
+                  >-{{ discount.amount | money -}}
+                </span>
+              </li>
+            {%- endfor -%}
+          {%- endfor -%}
+        {%- endif -%}
         {%- for discount in cart.cart_level_discount_applications -%}
           <li class="cart-discounts__item">
             <span class="cart-discounts__label">

@@ -253,11 +253,15 @@
 
                       {%- if item.line_level_discount_allocations.size > 0 -%}
                         <ul
-                          class="list-unstyled"
+                          class="list-unstyled cart-items__discounts"
                           role="list"
                         >
                           {%- for discount in item.line_level_discount_allocations -%}
-                            <li>{{ discount.discount_application.title | escape }}</li>
+                            <li class="cart-items__discount">
+                              {{- 'icon-discount.svg' | inline_asset_content -}}
+                              {{ discount.discount_application.title | escape }}
+                              (-{{ discount.amount | money }})
+                            </li>
                           {%- endfor -%}
                         </ul>
                       {%- endif -%}
@@ -266,7 +270,25 @@
 
                   <div class="cart-items__unit-price-wrapper">
                     <div>
-                      {% if item.original_price != item.final_price %}
+                      {%- liquid
+                        assign item_variant_title_lower = item.variant.title | downcase
+                        assign ws_retail_variant = nil
+                        if item_variant_title_lower == 'wholesale'
+                          for v in item.product.variants
+                            assign v_title_lower = v.title | downcase
+                            if v_title_lower != 'wholesale' and ws_retail_variant == nil
+                              assign ws_retail_variant = v
+                            endif
+                          endfor
+                        endif
+                      -%}
+                      {% if ws_retail_variant != nil and ws_retail_variant.price > item.original_price %}
+                        <div class="cart-items__ws-price-block">
+                          <span class="cart-items__ws-badge">Wholesale</span>
+                          <span class="cart-items__ws-price">{{ item.final_price | money }}</span>
+                          <s class="cart-items__ws-retail-price">{{ ws_retail_variant.price | money }}</s>
+                        </div>
+                      {% elsif item.original_price != item.final_price %}
                         <span class="visually-hidden">{{ 'content.price_sale' | t }}</span>
                         <span>{{ item.final_price | money }}</span>
                         <span class="visually-hidden">{{ 'content.price_regular' | t }}</span>
@@ -283,9 +305,7 @@
                         {% else %}
                           <span class="visually-hidden">{{ 'content.price' | t }}</span>
                         {% endif %}
-
                         <span>{{ item.original_price | money }}</span>
-
                         {% if item.variant.compare_at_price > item.original_price %}
                           <span class="visually-hidden">{{ 'content.price_regular' | t }}</span>
                           <s class="compare-at-price">{{ item.variant.compare_at_price | money }}</s>
@@ -354,12 +374,30 @@
                   </div>
                 </td>
                 {%- liquid
+                  assign ws_retail_for_line = nil
+                  assign item_vt_lower = item.variant.title | downcase
+                  if item_vt_lower == 'wholesale'
+                    for v in item.product.variants
+                      assign vt_lower = v.title | downcase
+                      if vt_lower != 'wholesale' and ws_retail_for_line == nil
+                        assign ws_retail_for_line = v
+                      endif
+                    endfor
+                  endif
                   if settings.currency_code_enabled_cart_items
                     assign price = item.final_line_price | money_with_currency
+                    assign original_price = item.original_line_price | money_with_currency
                     assign unit_price = item.unit_price | money_with_currency
+                    if ws_retail_for_line != nil
+                      assign ws_retail_line_price = ws_retail_for_line.price | times: item.quantity | money_with_currency
+                    endif
                   else
                     assign price = item.final_line_price | money
+                    assign original_price = item.original_line_price | money
                     assign unit_price = item.unit_price | money
+                    if ws_retail_for_line != nil
+                      assign ws_retail_line_price = ws_retail_for_line.price | times: item.quantity | money
+                    endif
                   endif
                 -%}
                 <td
@@ -367,6 +405,11 @@
                   role="cell"
                   headers="productTotal"
                 >
+                  {%- if ws_retail_for_line != nil and ws_retail_for_line.price > item.original_price -%}
+                    <s class="cart-items__price-original">{{ ws_retail_line_price }}</s>
+                  {%- elsif item.original_line_price != item.final_line_price -%}
+                    <s class="cart-items__price-original">{{ original_price }}</s>
+                  {%- endif -%}
                   <text-component value="{{ price | strip_html }}">{{ price }}</text-component>
                   {%- if item.unit_price_measurement -%}
                     <div class="cart-items__price-unit cart-secondary-typography">
@@ -846,6 +889,91 @@
     100% {
       transform: translate(0, 0);
     }
+  }
+
+  .cart-items__discounts {
+    margin-block-start: var(--margin-3xs);
+  }
+
+  .cart-items__discount {
+    display: flex;
+    align-items: center;
+    gap: var(--gap-2xs);
+    color: rgb(var(--color-foreground-rgb) / var(--opacity-subdued-text));
+    font-size: var(--font-size--xs);
+  }
+
+  .cart-items__discount svg {
+    width: var(--icon-size-sm);
+    height: var(--icon-size-sm);
+    flex-shrink: 0;
+  }
+
+  .cart-items__price-original {
+    display: block;
+    color: rgb(var(--color-foreground-rgb) / var(--opacity-subdued-text));
+    font-size: var(--font-size--xs);
+    text-decoration: line-through;
+  }
+
+  .cart-items__discounts {
+    margin-block-start: var(--margin-3xs);
+  }
+
+  .cart-items__discount {
+    display: flex;
+    align-items: center;
+    gap: var(--gap-2xs);
+    color: rgb(var(--color-foreground-rgb) / var(--opacity-subdued-text));
+    font-size: var(--font-size--xs);
+  }
+
+  .cart-items__discount svg {
+    width: var(--icon-size-sm);
+    height: var(--icon-size-sm);
+    flex-shrink: 0;
+  }
+
+  .cart-items__price-original {
+    display: block;
+    color: rgb(var(--color-foreground-rgb) / var(--opacity-subdued-text));
+    font-size: var(--font-size--xs);
+    text-decoration: line-through;
+  }
+
+  /* Wholesale price block — shown in per-unit area */
+  .cart-items__ws-price-block {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-block-start: var(--margin-3xs);
+    font-size: var(--font-size--sm) !important;
+  }
+
+  .cart-items__ws-badge {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 700;
+    color: #fff;
+    background-color: #c0392b;
+    border-radius: 3px;
+    padding: 1px 5px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    flex-shrink: 0;
+  }
+
+  .cart-items__ws-price {
+    font-size: var(--font-size--sm) !important;
+    font-weight: 700;
+    color: var(--color-foreground) !important;
+  }
+
+  .cart-items__ws-retail-price {
+    font-size: var(--font-size--xs) !important;
+    color: rgb(var(--color-foreground-rgb) / 0.5) !important;
+    text-decoration: line-through;
   }
 
   .cart-items__properties {
