@@ -1,0 +1,140 @@
+{% schema %}
+{
+  "name": "Advanced Custom Slider",
+  "settings": [
+    {
+      "type": "color",
+      "id": "button_bg_color",
+      "label": "Button Background Color",
+      "default": "#000000"
+    },
+    {
+      "type": "color",
+      "id": "button_text_color",
+      "label": "Button Text Color",
+      "default": "#ffffff"
+    },
+    {
+      "type": "range",
+      "id": "button_radius",
+      "label": "Button Border Radius (px)",
+      "default": 5,
+      "min": 0,
+      "max": 50
+    },
+    {
+      "type": "range",
+      "id": "button_font_size",
+      "label": "Button Font Size (px)",
+      "default": 16,
+      "min": 10,
+      "max": 40
+    },
+    {
+      "type": "color",
+      "id": "overlay_color",
+      "label": "Slider Overlay Color",
+      "default": "rgba(0,0,0,0.4)"
+    }
+  ],
+  "blocks": [
+    {
+      "type": "slide",
+      "name": "Slide",
+      "settings": [
+        { "type": "image_picker", "id": "slide_image", "label": "Background Image" },
+        { "type": "text", "id": "slide_title", "label": "Title", "default": "Slide Title" },
+        { "type": "text", "id": "slide_subtitle", "label": "Subtitle", "default": "Slide Subtitle" },
+        { "type": "text", "id": "button1_text", "label": "Button 1 Text", "default": "Shop Now" },
+        { "type": "url", "id": "button1_link", "label": "Button 1 Link" },
+        { "type": "text", "id": "button2_text", "label": "Button 2 Text", "default": "Learn More" },
+        { "type": "url", "id": "button2_link", "label": "Button 2 Link" }
+      ]
+    }
+  ],
+  "presets": [
+    { "name": "Advanced Slider", "category": "Hero" }
+  ]
+}
+{% endschema %}
+
+{% stylesheet %}
+.custom-slider { position: relative; overflow: hidden; width: 100%; height: 520px; }
+.custom-slide { position: absolute; width: 100%; height: 100%; background-size: cover; background-position: center; opacity: 0; transition: opacity 1s ease; }
+.custom-slide.active { opacity: 1; }
+.custom-slide-overlay { position:absolute; width:100%; height:100%; top:0; left:0; background:{{ section.settings.overlay_color }}; }
+.custom-slide-content { position: absolute; top:50%; left:50%; transform:translate(-50%,-50%); text-align:center; color:#fff; max-width:650px; z-index:2; }
+.custom-slide-content h2 { font-size:48px; margin-bottom:10px; }
+.custom-slide-content p { font-size:20px; margin-bottom:25px; }
+.custom-slide-content a { padding:12px 25px; margin:0 10px; text-decoration:none; font-weight:600; border-radius:{{ section.settings.button_radius }}px; background:{{ section.settings.button_bg_color }}; color:{{ section.settings.button_text_color }}; font-size:{{ section.settings.button_font_size }}px; }
+.custom-slide-content a.btn2 { background:{{ section.settings.button_bg_color }}; color:{{ section.settings.button_text_color }}; font-size:{{ section.settings.button_font_size }}px; }
+
+/* Arrows */
+.custom-arrow { position:absolute; top:50%; transform:translateY(-50%); font-size:30px; color:#fff; cursor:pointer; z-index:20; padding:10px; }
+.custom-arrow-left { left:20px; } .custom-arrow-right { right:20px; }
+
+/* Dots */
+.custom-dots { position:absolute; bottom:20px; width:100%; text-align:center; }
+.custom-dots span { height:12px; width:12px; background:rgba(255,255,255,0.6); display:inline-block; margin:5px; border-radius:50%; cursor:pointer; }
+.custom-dots .active { background:#fff; }
+
+/* Mobile */
+@media (max-width:768px) {
+  .custom-slider { height:320px; }
+  .custom-slide-content h2 { font-size:28px; }
+  .custom-slide-content p { font-size:16px; }
+}
+{% endstylesheet %}
+
+<div class="custom-slider" id="slider">
+  {% for block in section.blocks %}
+    <div class="custom-slide {% if forloop.first %}active{% endif %}" style="background-image:url('{{ block.settings.slide_image | img_url: '2048x2048' }}');">
+      <div class="custom-slide-overlay"></div>
+      <div class="custom-slide-content">
+        <h2>{{ block.settings.slide_title }}</h2>
+        <p>{{ block.settings.slide_subtitle }}</p>
+        <a href="{{ block.settings.button1_link }}">{{ block.settings.button1_text }}</a>
+        <a href="{{ block.settings.button2_link }}" class="btn2">{{ block.settings.button2_text }}</a>
+      </div>
+    </div>
+  {% endfor %}
+  <div class="custom-arrow custom-arrow-left" onclick="prevSlide()">❮</div>
+  <div class="custom-arrow custom-arrow-right" onclick="nextSlide()">❯</div>
+  <div class="custom-dots" id="dots"></div>
+</div>
+
+<script>
+let currentSlide = 0;
+let slides = document.querySelectorAll(".custom-slide");
+let totalSlides = slides.length;
+let dotsContainer = document.getElementById("dots");
+
+/* Create Dots */
+slides.forEach((_, index) => {
+  let dot = document.createElement("span");
+  dot.addEventListener("click", () => goToSlide(index));
+  dotsContainer.appendChild(dot);
+});
+updateDots();
+
+function showSlide(index){
+  slides.forEach(s=>s.classList.remove("active"));
+  slides[index].classList.add("active");
+  currentSlide = index;
+  updateDots();
+}
+function nextSlide(){ showSlide((currentSlide+1)%totalSlides); }
+function prevSlide(){ showSlide((currentSlide-1+totalSlides)%totalSlides); }
+function goToSlide(index){ showSlide(index); }
+function updateDots(){
+  let dots = dotsContainer.children;
+  for(let i=0;i<dots.length;i++){dots[i].classList.remove("active");}
+  dots[currentSlide].classList.add("active");
+}
+
+/* Autoplay & Pause */
+let autoPlay = setInterval(nextSlide,3500);
+let slider = document.getElementById("slider");
+slider.addEventListener("mouseenter",()=>clearInterval(autoPlay));
+slider.addEventListener("mouseleave",()=>autoPlay=setInterval(nextSlide,3500));
+</script>

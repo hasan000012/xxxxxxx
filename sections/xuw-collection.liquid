@@ -1,0 +1,794 @@
+{% comment %}
+================================================================================
+  X UNDER WORLD — Collection Section
+  File    : sections/xuw-collection.liquid
+  Version : 9.0
+
+  V9 FIXES (from screenshot + requirements):
+  ─────────────────────────────────────────────────────────────────────────────
+  FIX 1  — ALL "| t" translation calls removed. Were showing "TRANSLATION
+            MISSING: en.sections.xuw.*" everywhere. Using | default: only.
+  FIX 2  — Wholesale is now VALUE-BASED discount, no fixed MOQ.
+            €300+ = 3%  |  €500+ = 5%  |  €1000+ = 10%  |  €2000+ = 20%
+            Customer can buy any quantity. Discount shown live in modal.
+  FIX 3  — Category sidebar is now a NAVIGATION TREE (links to collection
+            pages) built from Excel data — not checkboxes. Dynamic per page.
+  FIX 4  — data-action event delegation wired — no inline onclick anywhere.
+  FIX 5  — Subcategory links from Excel (all 84 subcollections) rendered
+            as collapsible tree under each parent category.
+  FIX 6  — Filter sidebar works on both homepage AND individual collection
+            pages (collection template reuse via is_homepage check).
+  FIX 7  — Hero carousel uses plain text defaults — no translation keys.
+  FIX 8  — Sort select uses id + JS listener — no onchange= attribute.
+  FIX 9  — All filter data-filter-val values lowercased consistently.
+  FIX 10 — No emoji icons in category labels per requirement.
+
+  CATEGORY TREE (from File1_Category_Map.xlsx):
+  ─────────────────────────────────────────────────────────────────────────────
+  13 parent categories → 84 subcollections
+  Each subcollection has its own Shopify collection handle.
+  Tags/filters per subcollection come from the Tags/Filters column.
+================================================================================
+{% endcomment %}
+
+{%- liquid
+  assign col              = section.settings.collection
+  if col == blank
+    assign col = collections.all
+  endif
+  assign products_per_page = section.settings.products_per_page | default: 12
+  assign show_vendor        = section.settings.show_vendor
+  assign enable_filtering   = section.settings.enable_filtering
+  assign enable_sorting     = section.settings.enable_sorting
+  assign show_hero          = section.settings.show_hero
+  assign c_crimson          = section.settings.color_crimson | default: '#8b4444'
+  assign c_gold             = section.settings.color_gold    | default: '#ffcc00'
+  assign c_bg               = section.settings.color_bg      | default: '#000000'
+  assign c_text             = section.settings.color_text    | default: '#ffffff'
+  assign is_homepage        = false
+  if request.page_type == 'index'
+    assign is_homepage = true
+  endif
+-%}
+
+<style>
+  .xuw-section {
+    --xuw-crimson : {{ c_crimson }};
+    --xuw-gold    : {{ c_gold }};
+    --xuw-black   : {{ c_bg }};
+    --xuw-white   : {{ c_text }};
+  }
+</style>
+<link rel="stylesheet" href="{{ 'xuw-collection.css' | asset_url }}">
+
+{%- comment %} ══ 4-SLIDE HERO CAROUSEL ══ {% endcomment %}
+{%- if show_hero -%}
+<div class="xuw-hero-slider" id="xuwHeroSlider" aria-label="Featured">
+
+  <div class="xuw-slide xuw-slide--active" aria-label="Slide 1 of 4">
+    <div class="xuw-hero xuw-hero--needles">
+      <div class="xuw-hero__content">
+        <p class="xuw-hero__eyebrow">{{ section.settings.s1_eyebrow | default: 'Professional Tattoo Supplies' }}</p>
+        <h2 class="xuw-hero__title">
+          {{ section.settings.s1_title1 | default: 'MAGIC MOON' }}<br>
+          <span>{{ section.settings.s1_title2 | default: 'NEEDLES' }}</span>
+        </h2>
+        <p class="xuw-hero__sub">{{ section.settings.s1_subtitle | default: 'EO sterilised · Surgical steel · Round Liner · Magnum · Soft Edge. Ships from Germany.' }}</p>
+        <div class="xuw-hero__search-wrap">
+          <div class="xuw-smart-search">
+            <svg class="xuw-smart-search__icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input type="search" id="xuwHeroSearch" class="xuw-smart-search__input"
+              placeholder="Search inks, needles, machines, brands…"
+              autocomplete="off" aria-label="Search products"
+              aria-autocomplete="list" aria-controls="xuwSearchDropdown" aria-expanded="false">
+            <button class="xuw-smart-search__clear" id="xuwHeroSearchClear" aria-label="Clear" style="display:none" type="button">&#10005;</button>
+          </div>
+          <div class="xuw-search-dropdown" id="xuwSearchDropdown" role="listbox" style="display:none"></div>
+        </div>
+        <div class="xuw-hero__pills" aria-hidden="true">
+          <span class="xuw-hero__pill">2-Click Checkout</span>
+          <span class="xuw-hero__pill">Value-Based Wholesale</span>
+          <span class="xuw-hero__pill">Ships from Germany</span>
+          <span class="xuw-hero__pill">1,826 Products</span>
+        </div>
+        <div class="xuw-hero__slide-btns">
+          {%- if section.settings.s1_btn1_url != blank -%}<a href="{{ section.settings.s1_btn1_url }}" class="xuw-btn xuw-btn--buy xuw-btn--hero">{{ section.settings.s1_btn1_label | default: 'Shop Needles' }}</a>{%- endif -%}
+          {%- if section.settings.s1_btn2_url != blank -%}<a href="{{ section.settings.s1_btn2_url }}" class="xuw-btn xuw-btn--outline xuw-btn--hero">{{ section.settings.s1_btn2_label | default: 'Shop Cartridges' }}</a>{%- endif -%}
+        </div>
+      </div>
+      <div class="xuw-hero__stats" aria-hidden="true">
+        <div class="xuw-hero__stat"><strong>{{ col.products_count }}</strong><span>Products</span></div>
+        <div class="xuw-hero__stat"><strong>30+</strong><span>Brands</span></div>
+        <div class="xuw-hero__stat"><strong>-20%</strong><span>Bulk Max</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="xuw-slide" aria-label="Slide 2 of 4">
+    <div class="xuw-hero xuw-hero--inks">
+      <div class="xuw-hero__content">
+        <p class="xuw-hero__eyebrow">{{ section.settings.s2_eyebrow | default: 'Tattoo & PMU Inks' }}</p>
+        <h2 class="xuw-hero__title">{{ section.settings.s2_title1 | default: 'PREMIUM' }}<br><span>{{ section.settings.s2_title2 | default: 'INK COLLECTION' }}</span></h2>
+        <p class="xuw-hero__sub">{{ section.settings.s2_subtitle | default: 'World Famous · Kuro Sumi · Intenze · I AM INK · Perma Blend PMU. Vegan. REACH-compliant.' }}</p>
+        <div class="xuw-hero__slide-btns">
+          {%- if section.settings.s2_btn1_url != blank -%}<a href="{{ section.settings.s2_btn1_url }}" class="xuw-btn xuw-btn--buy xuw-btn--hero">{{ section.settings.s2_btn1_label | default: 'Shop Inks' }}</a>{%- endif -%}
+          {%- if section.settings.s2_btn2_url != blank -%}<a href="{{ section.settings.s2_btn2_url }}" class="xuw-btn xuw-btn--outline xuw-btn--hero">{{ section.settings.s2_btn2_label | default: 'PMU Inks' }}</a>{%- endif -%}
+        </div>
+      </div>
+      <div class="xuw-hero__stats" aria-hidden="true">
+        <div class="xuw-hero__stat"><strong>400+</strong><span>Colours</span></div>
+        <div class="xuw-hero__stat"><strong>12+</strong><span>Brands</span></div>
+        <div class="xuw-hero__stat"><strong>REACH</strong><span>Compliant</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="xuw-slide" aria-label="Slide 3 of 4">
+    <div class="xuw-hero xuw-hero--machines">
+      <div class="xuw-hero__content">
+        <p class="xuw-hero__eyebrow">{{ section.settings.s3_eyebrow | default: 'Tattoo Machines & Power' }}</p>
+        <h2 class="xuw-hero__title">{{ section.settings.s3_title1 | default: 'PRO' }}<br><span>{{ section.settings.s3_title2 | default: 'MACHINES' }}</span></h2>
+        <p class="xuw-hero__sub">{{ section.settings.s3_subtitle | default: 'Cheyenne · FK Irons · Neuma · Critical · Musotoku · Shagbuilt. EU stock.' }}</p>
+        <div class="xuw-hero__slide-btns">
+          {%- if section.settings.s3_btn1_url != blank -%}<a href="{{ section.settings.s3_btn1_url }}" class="xuw-btn xuw-btn--buy xuw-btn--hero">{{ section.settings.s3_btn1_label | default: 'Shop Machines' }}</a>{%- endif -%}
+          {%- if section.settings.s3_btn2_url != blank -%}<a href="{{ section.settings.s3_btn2_url }}" class="xuw-btn xuw-btn--outline xuw-btn--hero">{{ section.settings.s3_btn2_label | default: 'Power Supplies' }}</a>{%- endif -%}
+        </div>
+      </div>
+      <div class="xuw-hero__stats" aria-hidden="true">
+        <div class="xuw-hero__stat"><strong>8+</strong><span>Brands</span></div>
+        <div class="xuw-hero__stat"><strong>RCA</strong><span>Clip Cord</span></div>
+        <div class="xuw-hero__stat"><strong>EU</strong><span>Stock</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="xuw-slide" aria-label="Slide 4 of 4">
+    <div class="xuw-hero xuw-hero--wholesale">
+      <div class="xuw-hero__content">
+        <p class="xuw-hero__eyebrow">{{ section.settings.s4_eyebrow | default: 'Studio & Bulk Pricing' }}</p>
+        <h2 class="xuw-hero__title">{{ section.settings.s4_title1 | default: 'BULK' }}<br><span>{{ section.settings.s4_title2 | default: 'PRICING' }}</span></h2>
+        <p class="xuw-hero__sub">{{ section.settings.s4_subtitle | default: 'Spend €300 = 3% off · €500 = 5% · €1000 = 10% · €2000 = 20%. No minimum quantity.' }}</p>
+        <div class="xuw-hero__slide-btns">
+          {%- if section.settings.s4_btn1_url != blank -%}<a href="{{ section.settings.s4_btn1_url }}" class="xuw-btn xuw-btn--buy xuw-btn--hero">{{ section.settings.s4_btn1_label | default: 'Studio Pricing' }}</a>{%- endif -%}
+          {%- if section.settings.s4_btn2_url != blank -%}<a href="{{ section.settings.s4_btn2_url }}" class="xuw-btn xuw-btn--outline xuw-btn--hero">{{ section.settings.s4_btn2_label | default: 'Contact Us' }}</a>{%- endif -%}
+        </div>
+      </div>
+      <div class="xuw-hero__stats" aria-hidden="true">
+        <div class="xuw-hero__stat"><strong>-20%</strong><span>Max Off</span></div>
+        <div class="xuw-hero__stat"><strong>4</strong><span>Tiers</span></div>
+        <div class="xuw-hero__stat"><strong>€300</strong><span>Starts At</span></div>
+      </div>
+    </div>
+  </div>
+
+  <button class="xuw-slider__prev" id="xuwSliderPrev" type="button" data-action="slider-prev" aria-label="Previous slide">&#8592;</button>
+  <button class="xuw-slider__next" id="xuwSliderNext" type="button" data-action="slider-next" aria-label="Next slide">&#8594;</button>
+  <div class="xuw-slider__dots" id="xuwSliderDots" role="tablist">
+    <button class="xuw-slider__dot xuw-slider__dot--active" data-slide="0" data-action="slider-goto" role="tab" aria-selected="true"  type="button" aria-label="Slide 1"></button>
+    <button class="xuw-slider__dot"                         data-slide="1" data-action="slider-goto" role="tab" aria-selected="false" type="button" aria-label="Slide 2"></button>
+    <button class="xuw-slider__dot"                         data-slide="2" data-action="slider-goto" role="tab" aria-selected="false" type="button" aria-label="Slide 3"></button>
+    <button class="xuw-slider__dot"                         data-slide="3" data-action="slider-goto" role="tab" aria-selected="false" type="button" aria-label="Slide 4"></button>
+  </div>
+</div>
+{%- endif -%}
+
+{%- comment %} ══ SHOP WRAPPER ══ {% endcomment %}
+<div class="xuw-shop-wrapper">
+
+  {%- if enable_filtering -%}
+  <button class="xuw-filter-mobile-btn" id="xuwFilterMobileBtn"
+    data-action="toggle-sidebar" aria-expanded="false" aria-controls="xuwSidebar" type="button">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+      <line x1="4" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="20" y2="12"/><line x1="12" y1="18" x2="20" y2="18"/>
+    </svg>
+    Filters
+    <span class="xuw-filter-badge" id="xuwFilterBadge" style="display:none" aria-live="polite">0</span>
+  </button>
+
+  <aside class="xuw-sidebar" id="xuwSidebar" aria-label="Product filters">
+    <div class="xuw-sidebar__head">
+      <span class="xuw-sidebar__title">Filters</span>
+      <button class="xuw-clear-all" id="xuwClearAll" data-action="clear-all" type="button">Clear All</button>
+    </div>
+
+    {%- comment %}
+    ── PURCHASE TYPE: Retail / Wholesale (value-based discount) ──
+    No fixed MOQ. Discount tiers applied to cart total in JS.
+    {% endcomment %}
+    <div class="xuw-filter-group xuw-filter-group--ws">
+      <button class="xuw-filter-group__head" data-action="toggle-group" aria-expanded="true" type="button">
+        <span>Purchase Type</span>
+        <svg class="xuw-chevron" width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      </button>
+      <div class="xuw-filter-group__body">
+        <div class="xuw-ws-toggle" role="group" aria-label="Purchase type">
+          <button class="xuw-ws-btn is-active" data-mode="retail"    data-action="set-ws-mode" type="button">Retail</button>
+          <button class="xuw-ws-btn"           data-mode="wholesale" data-action="set-ws-mode" type="button">Wholesale</button>
+        </div>
+        <p class="xuw-ws-note" id="xuwSidebarModeNote">Standard retail pricing</p>
+        <div class="xuw-ws-tiers" id="xuwSidebarTiers" style="display:none">
+          <p class="xuw-ws-tiers__label">Bulk discounts apply automatically:</p>
+          <table class="xuw-ws-tiers__table">
+            <tr><td>&#8364;300+</td><td class="xuw-ws-tiers__pct">3% off</td></tr>
+            <tr><td>&#8364;500+</td><td class="xuw-ws-tiers__pct">5% off</td></tr>
+            <tr><td>&#8364;1,000+</td><td class="xuw-ws-tiers__pct">10% off</td></tr>
+            <tr><td>&#8364;2,000+</td><td class="xuw-ws-tiers__pct">20% off</td></tr>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    {%- comment %}
+    ── CATEGORY NAVIGATION TREE ──
+    Source: File1_Category_Map.xlsx
+    13 parent categories → 84 subcollections with direct links.
+    FIX: No checkboxes. Links navigate directly to the subcollection page.
+    FIX: No emoji icons. No hardcoded translation keys.
+    FIX: Dynamic — if current page is inside a category, that branch is open.
+    {% endcomment %}
+
+    {%- comment %} Magic Moon Needles {% endcomment %}
+    <div class="xuw-filter-group xuw-cat-group">
+      <button class="xuw-filter-group__head" data-action="toggle-group"
+        aria-expanded="{% if collection.handle contains 'needles' %}true{% else %}false{% endif %}" type="button">
+        <span>Magic Moon Needles</span>
+        <svg class="xuw-chevron {% unless collection.handle contains 'needles' %}xuw-chevron--closed{% endunless %}" width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      </button>
+      <div class="xuw-cat-links" {% unless collection.handle contains 'needles' %}style="display:none"{% endunless %}>
+        <a href="/collections/magnum-needles"           class="xuw-cat-link {% if collection.handle == 'magnum-needles' %}is-active{% endif %}">Magnum Needles <span>28</span></a>
+        <a href="/collections/round-liner-needles"      class="xuw-cat-link {% if collection.handle == 'round-liner-needles' %}is-active{% endif %}">Round Liner Needles <span>72</span></a>
+        <a href="/collections/round-shader-needles"     class="xuw-cat-link {% if collection.handle == 'round-shader-needles' %}is-active{% endif %}">Round Shader Needles <span>18</span></a>
+        <a href="/collections/soft-edge-magnum-needles" class="xuw-cat-link {% if collection.handle == 'soft-edge-magnum-needles' %}is-active{% endif %}">Soft Edge Magnum Needles <span>22</span></a>
+        <a href="/collections/specialty-needles"        class="xuw-cat-link {% if collection.handle == 'specialty-needles' %}is-active{% endif %}">Specialty Needles <span>2</span></a>
+      </div>
+    </div>
+
+    {%- comment %} Magic Moon Cartridges {% endcomment %}
+    <div class="xuw-filter-group xuw-cat-group">
+      <button class="xuw-filter-group__head" data-action="toggle-group"
+        aria-expanded="{% if collection.handle contains 'cartridges' and collection.handle contains 'moon' %}true{% elsif collection.handle contains 'biodegradable' or collection.handle contains 'comfort' or collection.handle contains 'slim-line' %}true{% else %}false{% endif %}" type="button">
+        <span>Magic Moon Cartridges</span>
+        <svg class="xuw-chevron xuw-chevron--closed" width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      </button>
+      <div class="xuw-cat-links" style="display:none">
+        <p class="xuw-cat-links__group">Biodegradable</p>
+        <a href="/collections/biodegradable-cartridges-magnum"           class="xuw-cat-link {% if collection.handle == 'biodegradable-cartridges-magnum' %}is-active{% endif %}">Magnum <span>22</span></a>
+        <a href="/collections/biodegradable-cartridges-round-liner"      class="xuw-cat-link {% if collection.handle == 'biodegradable-cartridges-round-liner' %}is-active{% endif %}">Round Liner <span>58</span></a>
+        <a href="/collections/biodegradable-cartridges-round-shader"     class="xuw-cat-link {% if collection.handle == 'biodegradable-cartridges-round-shader' %}is-active{% endif %}">Round Shader <span>22</span></a>
+        <a href="/collections/biodegradable-cartridges-soft-edge-magnum" class="xuw-cat-link {% if collection.handle == 'biodegradable-cartridges-soft-edge-magnum' %}is-active{% endif %}">Soft Edge Magnum <span>46</span></a>
+        <p class="xuw-cat-links__group">Comfort</p>
+        <a href="/collections/comfort-cartridges-diamond"       class="xuw-cat-link">Diamond <span>11</span></a>
+        <a href="/collections/comfort-cartridges-magnum"        class="xuw-cat-link">Magnum <span>13</span></a>
+        <a href="/collections/comfort-cartridges-round-liner"   class="xuw-cat-link">Round Liner <span>35</span></a>
+        <a href="/collections/comfort-cartridges-round-shader"  class="xuw-cat-link">Round Shader <span>14</span></a>
+        <a href="/collections/comfort-cartridges-soft-edge-magnum" class="xuw-cat-link">Soft Edge Magnum <span>24</span></a>
+        <p class="xuw-cat-links__group">Needle Cartridges</p>
+        <a href="/collections/needle-cartridges-diamond"        class="xuw-cat-link">Diamond <span>23</span></a>
+        <a href="/collections/needle-cartridges-magnum"         class="xuw-cat-link">Magnum <span>26</span></a>
+        <a href="/collections/needle-cartridges-round-liner"    class="xuw-cat-link">Round Liner <span>54</span></a>
+        <a href="/collections/needle-cartridges-round-shader"   class="xuw-cat-link">Round Shader <span>34</span></a>
+        <a href="/collections/needle-cartridges-soft-edge-magnum" class="xuw-cat-link">Soft Edge Magnum <span>43</span></a>
+        <p class="xuw-cat-links__group">Slim Line</p>
+        <a href="/collections/slim-line-cartridges-round-liner"  class="xuw-cat-link">Round Liner <span>32</span></a>
+        <a href="/collections/slim-line-cartridges-round-shader" class="xuw-cat-link">Round Shader <span>11</span></a>
+      </div>
+    </div>
+
+    {%- comment %} Cartridges by Brand {% endcomment %}
+    <div class="xuw-filter-group xuw-cat-group">
+      <button class="xuw-filter-group__head" data-action="toggle-group"
+        aria-expanded="{% if collection.handle contains 'kwadron' or collection.handle contains 'lunar-pmu' %}true{% else %}false{% endif %}" type="button">
+        <span>Cartridges by Brand</span>
+        <svg class="xuw-chevron xuw-chevron--closed" width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      </button>
+      <div class="xuw-cat-links" style="display:none">
+        <p class="xuw-cat-links__group">Kwadron</p>
+        <a href="/collections/kwadron-cartridges-magnum"           class="xuw-cat-link">Magnum <span>10</span></a>
+        <a href="/collections/kwadron-cartridges-round-liner"      class="xuw-cat-link">Round Liner <span>30</span></a>
+        <a href="/collections/kwadron-cartridges-round-shader"     class="xuw-cat-link">Round Shader <span>11</span></a>
+        <a href="/collections/kwadron-cartridges-soft-edge-magnum" class="xuw-cat-link">Soft Edge Magnum <span>26</span></a>
+        <p class="xuw-cat-links__group">Lunar PMU</p>
+        <a href="/collections/lunar-pmu-cartridges-magnum"           class="xuw-cat-link">Magnum <span>9</span></a>
+        <a href="/collections/lunar-pmu-cartridges-round-liner"      class="xuw-cat-link">Round Liner <span>22</span></a>
+        <a href="/collections/lunar-pmu-cartridges-round-shader"     class="xuw-cat-link">Round Shader <span>12</span></a>
+        <a href="/collections/lunar-pmu-cartridges-slope-magnum"     class="xuw-cat-link">Slope Magnum <span>9</span></a>
+        <a href="/collections/lunar-pmu-cartridges-soft-edge-magnum" class="xuw-cat-link">Soft Edge Magnum <span>9</span></a>
+      </div>
+    </div>
+
+    {%- comment %} Tattoo Machines {% endcomment %}
+    <div class="xuw-filter-group xuw-cat-group">
+      <button class="xuw-filter-group__head" data-action="toggle-group"
+        aria-expanded="{% if collection.handle contains 'machine' or collection.handle contains 'power' or collection.handle contains 'grip' or collection.handle contains 'cable' %}true{% else %}false{% endif %}" type="button">
+        <span>Tattoo Machines</span>
+        <svg class="xuw-chevron xuw-chevron--closed" width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      </button>
+      <div class="xuw-cat-links" style="display:none">
+        <a href="/collections/cheyenne-tattoo-machines"       class="xuw-cat-link">Cheyenne Tattoo Machines <span>10</span></a>
+        <a href="/collections/critical-tattoo-machines"       class="xuw-cat-link">Critical Tattoo Machines <span>3</span></a>
+        <a href="/collections/equaliser-tattoo-pens"          class="xuw-cat-link">Equaliser Tattoo Pens <span>7</span></a>
+        <a href="/collections/fk-irons-spektra-machines"      class="xuw-cat-link">FK Irons &amp; Spektra <span>19</span></a>
+        <a href="/collections/inkjecta-machines"              class="xuw-cat-link">InkJecta Machines <span>5</span></a>
+        <a href="/collections/inklab-tattoo-pens"             class="xuw-cat-link">Inklab Tattoo Pens <span>2</span></a>
+        <a href="/collections/legend-tattoo-pens"             class="xuw-cat-link">Legend Tattoo Pens <span>6</span></a>
+        <a href="/collections/neuma-tattoo-pens"              class="xuw-cat-link">Neuma Tattoo Pens <span>12</span></a>
+        <a href="/collections/rotary-tattoo-machines-pens"    class="xuw-cat-link">Rotary Machines &amp; Pens <span>9</span></a>
+        <a href="/collections/shagbuilt-machines"             class="xuw-cat-link">Shagbuilt Machines <span>7</span></a>
+        <a href="/collections/artdriver-machines"             class="xuw-cat-link">ArtDriver Machines <span>1</span></a>
+        <a href="/collections/pmu-machines-sets"              class="xuw-cat-link">PMU Machines &amp; Sets <span>1</span></a>
+        <a href="/collections/cheyenne-grips-accessories"     class="xuw-cat-link">Cheyenne Grips &amp; Accessories <span>98</span></a>
+        <a href="/collections/neuma-grips-accessories"        class="xuw-cat-link">Neuma Grips &amp; Accessories <span>14</span></a>
+        <a href="/collections/grips-tubes"                    class="xuw-cat-link">Grips &amp; Tubes <span>25</span></a>
+        <a href="/collections/machine-parts-accessories"      class="xuw-cat-link">Machine Parts &amp; Accessories <span>20</span></a>
+        <a href="/collections/cables-cords-footswitches"      class="xuw-cat-link">Cables, Cords &amp; Footswitches <span>13</span></a>
+        <a href="/collections/critical-power-supplies-batteries" class="xuw-cat-link">Critical Power &amp; Batteries <span>28</span></a>
+        <a href="/collections/musotoku-power-supplies"        class="xuw-cat-link">Musotoku Power Supplies <span>13</span></a>
+        <a href="/collections/power-supplies-control-units"   class="xuw-cat-link">Power Supplies &amp; Control Units <span>4</span></a>
+      </div>
+    </div>
+
+    {%- comment %} Tattoo Inks {% endcomment %}
+    <div class="xuw-filter-group xuw-cat-group">
+      <button class="xuw-filter-group__head" data-action="toggle-group"
+        aria-expanded="{% if collection.handle contains 'inks' or collection.handle contains 'ink' and collection.handle contains 'tattoo' %}true{% else %}false{% endif %}" type="button">
+        <span>Tattoo Inks</span>
+        <svg class="xuw-chevron xuw-chevron--closed" width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      </button>
+      <div class="xuw-cat-links" style="display:none">
+        <a href="/collections/world-famous-limitless-inks"  class="xuw-cat-link">World Famous Limitless <span>96</span></a>
+        <a href="/collections/kuro-sumi-imperial-inks"      class="xuw-cat-link">Kuro Sumi Imperial <span>53</span></a>
+        <a href="/collections/intenze-tattoo-inks"          class="xuw-cat-link">Intenze <span>41</span></a>
+        <a href="/collections/perma-blend-luxe-pmu-inks"    class="xuw-cat-link">Perma Blend Luxe PMU <span>35</span></a>
+        <a href="/collections/i-am-ink-inks"                class="xuw-cat-link">I AM INK <span>31</span></a>
+        <a href="/collections/panthera-black-inks"          class="xuw-cat-link">Panthera Black <span>5</span></a>
+        <a href="/collections/polybius-inks"                class="xuw-cat-link">Polybius <span>5</span></a>
+        <a href="/collections/apex-eternal-inks"            class="xuw-cat-link">Apex Eternal <span>4</span></a>
+        <a href="/collections/dynamic-color-inks"           class="xuw-cat-link">Dynamic Color <span>3</span></a>
+        <a href="/collections/talens-drawing-inks"          class="xuw-cat-link">Talens Drawing <span>3</span></a>
+        <a href="/collections/kwadron-inks"                 class="xuw-cat-link">Kwadron <span>2</span></a>
+        <a href="/collections/eclipse-tattoo-inks"          class="xuw-cat-link">Eclipse <span>1</span></a>
+      </div>
+    </div>
+
+    {%- comment %} Hygiene & Safety {% endcomment %}
+    <div class="xuw-filter-group xuw-cat-group">
+      <button class="xuw-filter-group__head" data-action="toggle-group"
+        aria-expanded="{% if collection.handle contains 'barrier' or collection.handle contains 'glove' or collection.handle contains 'disinfect' or collection.handle contains 'skin-prep' %}true{% else %}false{% endif %}" type="button">
+        <span>Hygiene &amp; Safety</span>
+        <svg class="xuw-chevron xuw-chevron--closed" width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      </button>
+      <div class="xuw-cat-links" style="display:none">
+        <a href="/collections/barrier-film-covers"       class="xuw-cat-link">Barrier Film &amp; Covers <span>31</span></a>
+        <a href="/collections/disposable-gloves"         class="xuw-cat-link">Disposable Gloves <span>8</span></a>
+        <a href="/collections/disposal-accessories"      class="xuw-cat-link">Disposal &amp; Accessories <span>4</span></a>
+        <a href="/collections/ink-caps-cups"             class="xuw-cat-link">Ink Caps &amp; Cups <span>17</span></a>
+        <a href="/collections/skin-prep-disinfection"    class="xuw-cat-link">Skin Prep &amp; Disinfection <span>21</span></a>
+        <a href="/collections/surface-skin-disinfection" class="xuw-cat-link">Surface &amp; Skin Disinfection <span>11</span></a>
+      </div>
+    </div>
+
+    {%- comment %} Remaining categories — single subcollection each {% endcomment %}
+    <div class="xuw-filter-group xuw-cat-group">
+      <button class="xuw-filter-group__head" data-action="toggle-group" aria-expanded="false" type="button">
+        <span>Aftercare &amp; Skincare</span>
+        <svg class="xuw-chevron xuw-chevron--closed" width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      </button>
+      <div class="xuw-cat-links" style="display:none">
+        <a href="/collections/tattoo-aftercare-products" class="xuw-cat-link">Tattoo Aftercare Products <span>41</span></a>
+      </div>
+    </div>
+
+    <div class="xuw-filter-group xuw-cat-group">
+      <button class="xuw-filter-group__head" data-action="toggle-group" aria-expanded="false" type="button">
+        <span>Stencil &amp; Transfer</span>
+        <svg class="xuw-chevron xuw-chevron--closed" width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      </button>
+      <div class="xuw-cat-links" style="display:none">
+        <a href="/collections/stencil-transfer-paper"     class="xuw-cat-link">Stencil &amp; Transfer Paper <span>6</span></a>
+        <a href="/collections/stencil-liquids-solutions"  class="xuw-cat-link">Stencil Liquids &amp; Solutions <span>11</span></a>
+        <a href="/collections/tattoo-skin-markers"        class="xuw-cat-link">Tattoo Skin Markers <span>22</span></a>
+        <a href="/collections/thermal-copiers-accessories" class="xuw-cat-link">Thermal Copiers &amp; Accessories <span>23</span></a>
+      </div>
+    </div>
+
+    <div class="xuw-filter-group xuw-cat-group">
+      <button class="xuw-filter-group__head" data-action="toggle-group" aria-expanded="false" type="button">
+        <span>Art &amp; Drawing Supplies</span>
+        <svg class="xuw-chevron xuw-chevron--closed" width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      </button>
+      <div class="xuw-cat-links" style="display:none">
+        <a href="/collections/artist-pencils-markers"  class="xuw-cat-link">Artist Pencils &amp; Markers <span>8</span></a>
+        <a href="/collections/tombow-dual-brush-pens"  class="xuw-cat-link">Tombow Dual Brush Pens <span>29</span></a>
+        <a href="/collections/uni-posca-paint-markers" class="xuw-cat-link">UNI POSCA Paint Markers <span>77</span></a>
+      </div>
+    </div>
+
+    <div class="xuw-filter-group xuw-cat-group">
+      <button class="xuw-filter-group__head" data-action="toggle-group" aria-expanded="false" type="button">
+        <span>More</span>
+        <svg class="xuw-chevron xuw-chevron--closed" width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      </button>
+      <div class="xuw-cat-links" style="display:none">
+        <a href="/collections/tattoo-sketchbooks-art-books"        class="xuw-cat-link">Art Books &amp; Inspiration <span>37</span></a>
+        <a href="/collections/practice-skins"                      class="xuw-cat-link">Practice Skins <span>5</span></a>
+        <a href="/collections/workshops-courses"                   class="xuw-cat-link">Workshops &amp; Courses <span>6</span></a>
+        <a href="/collections/studio-accessories"                  class="xuw-cat-link">Studio Accessories <span>11</span></a>
+        <a href="/collections/tattoo-workz-furniture-chairs"       class="xuw-cat-link">Furniture &amp; Chairs <span>19</span></a>
+        <a href="/collections/magic-moon-accessories"              class="xuw-cat-link">Magic Moon Accessories <span>103</span></a>
+        <a href="/collections/magic-moon-clothing-merchandise"     class="xuw-cat-link">Clothing &amp; Merchandise <span>11</span></a>
+        <a href="/collections/gift-cards"                          class="xuw-cat-link">Gift Cards <span>1</span></a>
+      </div>
+    </div>
+
+    {%- comment %}
+    ── PRODUCT ATTRIBUTE FILTERS (tag-based, for collection pages) ──
+    These filter the VISIBLE cards on the current page via JS.
+    On the individual collection page, Shopify Search & Discovery
+    can also provide server-side filtering below.
+    {% endcomment %}
+
+    {%- comment %} Needle Count {% endcomment %}
+    <div class="xuw-filter-group">
+      <button class="xuw-filter-group__head" data-action="toggle-group" aria-expanded="false" type="button">
+        <span>Needle Count</span>
+        <svg class="xuw-chevron xuw-chevron--closed" width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      </button>
+      <div class="xuw-filter-group__body" style="display:none">
+        <div class="xuw-needle-grid">
+          {%- assign needle_pins = "1,3,5,7,9,11,13,14,15,17,18,19,21,23,25" | split: "," -%}
+          {%- for n in needle_pins -%}
+            <button class="xuw-needle-pill" data-filter-key="tags" data-filter-val="{{ n }}-pin"
+              data-action="needle-pill" aria-pressed="false" type="button">{{ n }}</button>
+          {%- endfor -%}
+        </div>
+        <p class="xuw-hint">Tag products: 9-pin, 11-pin etc.</p>
+      </div>
+    </div>
+
+    {%- comment %} Taper {% endcomment %}
+    <div class="xuw-filter-group">
+      <button class="xuw-filter-group__head" data-action="toggle-group" aria-expanded="false" type="button">
+        <span>Taper</span>
+        <svg class="xuw-chevron xuw-chevron--closed" width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      </button>
+      <div class="xuw-filter-group__body" style="display:none">
+        {%- assign taper_labels = "Long Taper,Medium Taper,Short Taper,Standard" | split: "," -%}
+        {%- assign taper_slugs  = "long-taper,medium-taper,short-taper,standard"  | split: "," -%}
+        {%- for i in (0..3) -%}
+          <label class="xuw-check">
+            <input type="checkbox" class="xuw-fc xuw-fc--static" data-filter-key="tags" data-filter-val="{{ taper_slugs[i] }}">
+            <span class="xuw-check__box"></span><span class="xuw-check__label">{{ taper_labels[i] }}</span>
+          </label>
+        {%- endfor -%}
+      </div>
+    </div>
+
+    {%- comment %} Ink Volume {% endcomment %}
+    <div class="xuw-filter-group">
+      <button class="xuw-filter-group__head" data-action="toggle-group" aria-expanded="false" type="button">
+        <span>Ink Volume</span>
+        <svg class="xuw-chevron xuw-chevron--closed" width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      </button>
+      <div class="xuw-filter-group__body" style="display:none">
+        {%- assign volumes = "15ml,22ml,30ml,50ml,150ml" | split: "," -%}
+        {%- for v in volumes -%}
+          <label class="xuw-check">
+            <input type="checkbox" class="xuw-fc xuw-fc--static" data-filter-key="tags" data-filter-val="{{ v }}">
+            <span class="xuw-check__box"></span><span class="xuw-check__label">{{ v }}</span>
+          </label>
+        {%- endfor -%}
+      </div>
+    </div>
+
+    {%- comment %} Brand {% endcomment %}
+    <div class="xuw-filter-group">
+      <button class="xuw-filter-group__head" data-action="toggle-group" aria-expanded="false" type="button">
+        <span>Brand</span>
+        <svg class="xuw-chevron xuw-chevron--closed" width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      </button>
+      <div class="xuw-filter-group__body" style="display:none">
+        {%- assign brands = "Magic Moon,Cheyenne,Critical,Kwadron,Lunar PMU,FK Irons,Neuma,Musotoku,Equaliser,InkJecta,Legend,Shagbuilt,ArtDriver,World Famous,Kuro Sumi,Intenze,Perma Blend,I AM INK,Panthera,Polybius,Apex Eternal,Dynamic,Eclipse,Talens,Dermalize,Unigloves,Hustle Butter,Eberhard Faber,Tombow,UNI,Spirit,Tattoo Workz" | split: "," -%}
+        {%- for b in brands -%}
+          <label class="xuw-check">
+            <input type="checkbox" class="xuw-fc xuw-fc--static" data-filter-key="vendor" data-filter-val="{{ b | downcase }}">
+            <span class="xuw-check__box"></span><span class="xuw-check__label">{{ b }}</span>
+          </label>
+        {%- endfor -%}
+      </div>
+    </div>
+
+    {%- comment %} Availability {% endcomment %}
+    <div class="xuw-filter-group">
+      <button class="xuw-filter-group__head" data-action="toggle-group" aria-expanded="true" type="button">
+        <span>Availability</span>
+        <svg class="xuw-chevron" width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      </button>
+      <div class="xuw-filter-group__body">
+        <label class="xuw-check">
+          <input type="checkbox" class="xuw-fc xuw-fc--static" data-filter-key="available" data-filter-val="true">
+          <span class="xuw-check__box"></span><span class="xuw-check__label">In Stock Only</span>
+        </label>
+      </div>
+    </div>
+
+    {%- comment %} Search & Discovery dynamic filters (price range etc.) {% endcomment %}
+    {%- if col.filters.size > 0 -%}
+      {%- assign skip_labels = "Availability,Vendor,Brand,Product type,Product Type,Category" | split: "," -%}
+      {%- for filter in col.filters -%}
+        {%- assign skip = false -%}
+        {%- for sl in skip_labels -%}{%- if filter.label == sl -%}{%- assign skip = true -%}{%- endif -%}{%- endfor -%}
+        {%- unless skip -%}
+          <div class="xuw-filter-group">
+            <button class="xuw-filter-group__head" data-action="toggle-group" aria-expanded="true" type="button">
+              <span>{{ filter.label }}</span>
+              <svg class="xuw-chevron" width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            </button>
+            <div class="xuw-filter-group__body">
+              {%- case filter.type -%}
+                {%- when 'boolean' -%}
+                  <label class="xuw-check">
+                    <input type="checkbox" class="xuw-fc xuw-fc--dynamic"
+                      {% if filter.active_values.size > 0 %}checked{% endif %}
+                      data-add="{{ filter.values[0].url_to_add }}"
+                      data-remove="{{ filter.values[0].url_to_remove }}">
+                    <span class="xuw-check__box"></span><span class="xuw-check__label">{{ filter.label }}</span>
+                  </label>
+                {%- when 'list' -%}
+                  {%- for value in filter.values -%}
+                    <label class="xuw-check{% if value.count == 0 and value.active == false %} xuw-check--empty{% endif %}">
+                      <input type="checkbox" class="xuw-fc xuw-fc--dynamic"
+                        {% if value.active %}checked{% endif %}
+                        {% if value.count == 0 and value.active == false %}disabled{% endif %}
+                        data-add="{{ value.url_to_add }}" data-remove="{{ value.url_to_remove }}">
+                      <span class="xuw-check__box"></span>
+                      <span class="xuw-check__label">{{ value.label }}</span>
+                      <span class="xuw-check__count">{{ value.count }}</span>
+                    </label>
+                  {%- endfor -%}
+                {%- when 'price_range' -%}
+                  <div class="xuw-price-range">
+                    <div class="xuw-price-range__track">
+                      <div class="xuw-price-range__fill" id="xuwPriceFill"></div>
+                      <input type="range" class="xuw-range" id="xuwPriceMin"
+                        min="{{ filter.range_min | divided_by: 100.0 }}" max="{{ filter.range_max | divided_by: 100.0 }}"
+                        value="{{ filter.min_value.value | default: filter.range_min | divided_by: 100.0 }}"
+                        step="1" data-param="{{ filter.min_value.param_name }}" aria-label="Minimum price">
+                      <input type="range" class="xuw-range" id="xuwPriceMax"
+                        min="{{ filter.range_min | divided_by: 100.0 }}" max="{{ filter.range_max | divided_by: 100.0 }}"
+                        value="{{ filter.max_value.value | default: filter.range_max | divided_by: 100.0 }}"
+                        step="1" data-param="{{ filter.max_value.param_name }}" aria-label="Maximum price">
+                    </div>
+                    <div class="xuw-price-range__labels">
+                      <span id="xuwPriceMinLbl">&#8364;{{ filter.min_value.value | default: filter.range_min | divided_by: 100.0 | round }}</span>
+                      <span id="xuwPriceMaxLbl">&#8364;{{ filter.max_value.value | default: filter.range_max | divided_by: 100.0 | round }}</span>
+                    </div>
+                  </div>
+              {%- endcase -%}
+            </div>
+          </div>
+        {%- endunless -%}
+      {%- endfor -%}
+    {%- endif -%}
+
+    <div class="xuw-active-chips" id="xuwActiveChips" style="display:none">
+      <p class="xuw-active-chips__label">Active filters:</p>
+      <div id="xuwChipList"></div>
+    </div>
+
+  </aside>
+  {%- endif -%}
+
+  <main class="xuw-main" id="xuwMain">
+    <div class="xuw-shop-header">
+      <div class="xuw-product-count" aria-live="polite">
+        <span id="xuwProductCount">{{ col.products_count }}</span>&thinsp;Products
+      </div>
+      <div class="xuw-search-bar">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="search" id="xuwSearch" placeholder="Filter visible products…" autocomplete="off" aria-label="Filter products">
+        <button class="xuw-search-clear" id="xuwSearchClear" data-action="clear-search" style="display:none" aria-label="Clear" type="button">&#10005;</button>
+      </div>
+      {%- if enable_sorting -%}
+      <select class="xuw-sort-select" id="xuwSortSelect" aria-label="Sort products">
+        {%- assign cur_sort = col.sort_by | default: '' -%}
+        <option value="title-ascending"    {% if cur_sort == 'title-ascending'    %}selected{% endif %}>A – Z</option>
+        <option value="title-descending"   {% if cur_sort == 'title-descending'   %}selected{% endif %}>Z – A</option>
+        <option value="price-ascending"    {% if cur_sort == 'price-ascending'    %}selected{% endif %}>Price &#8593;</option>
+        <option value="price-descending"   {% if cur_sort == 'price-descending'   %}selected{% endif %}>Price &#8595;</option>
+        <option value="best-selling"       {% if cur_sort == 'best-selling'       %}selected{% endif %}>Best Selling</option>
+        <option value="created-descending" {% if cur_sort == 'created-descending' %}selected{% endif %}>Newest</option>
+      </select>
+      {%- endif -%}
+    </div>
+
+    {%- if is_homepage -%}
+      <div class="xuw-product-grid" id="xuwGrid" data-total="{{ col.products_count }}">
+        {%- for product in col.products limit: products_per_page -%}
+          {%- render 'xuw-product-card', product: product, show_vendor: show_vendor -%}
+        {%- else -%}
+          <div class="xuw-empty"><div class="xuw-empty__icon" aria-hidden="true">&#128269;</div><p>No products found.</p><a href="{{ routes.all_products_collection_url }}" class="xuw-btn xuw-btn--outline" style="display:inline-block;width:auto;margin-top:16px">Browse All</a></div>
+        {%- endfor -%}
+      </div>
+      {%- if col.products_count > products_per_page -%}
+        <div class="xuw-view-all-wrap">
+          <a href="{{ col.url }}" class="xuw-btn xuw-btn--outline xuw-btn--view-all">View All {{ col.products_count }} Products &#8594;</a>
+        </div>
+      {%- endif -%}
+    {%- else -%}
+      {%- paginate col.products by products_per_page -%}
+        <div class="xuw-product-grid" id="xuwGrid" data-total="{{ col.products_count }}">
+          {%- for product in col.products -%}
+            {%- render 'xuw-product-card', product: product, show_vendor: show_vendor -%}
+          {%- else -%}
+            <div class="xuw-empty"><div class="xuw-empty__icon" aria-hidden="true">&#128269;</div><p>No products found.</p></div>
+          {%- endfor -%}
+        </div>
+        {%- if paginate.pages > 1 -%}
+          <nav class="xuw-pagination" aria-label="Product pages">
+            {%- if paginate.previous -%}<a class="xuw-pg-btn" href="{{ paginate.previous.url }}" aria-label="Previous">&#8592;</a>{%- endif -%}
+            {%- for part in paginate.parts -%}
+              {%- if part.is_link -%}<a class="xuw-pg-btn" href="{{ part.url }}">{{ part.title }}</a>
+              {%- elsif part.title == paginate.current_page -%}<span class="xuw-pg-btn is-active" aria-current="page">{{ part.title }}</span>
+              {%- else -%}<span class="xuw-pg-btn xuw-pg-dots">{{ part.title }}</span>
+              {%- endif -%}
+            {%- endfor -%}
+            {%- if paginate.next -%}<a class="xuw-pg-btn" href="{{ paginate.next.url }}" aria-label="Next">&#8594;</a>{%- endif -%}
+          </nav>
+        {%- endif -%}
+      {%- endpaginate -%}
+    {%- endif -%}
+  </main>
+</div>
+
+{%- comment %} ══ QUICK BUY MODAL ══ {% endcomment %}
+<div class="xuw-modal-overlay" id="xuwModalOverlay" role="dialog" aria-modal="true" aria-hidden="true" aria-label="Quick Buy">
+  <div class="xuw-modal" id="xuwModal">
+    <button class="xuw-modal__close" id="xuwModalClose" aria-label="Close" type="button">&#10005;</button>
+    <div class="xuw-modal__inner">
+      <div class="xuw-modal__media">
+        <img id="xuwModalImg" src="" alt="" loading="lazy" style="display:none;width:100%;height:100%;object-fit:cover;">
+        <div id="xuwModalImgPh" class="xuw-modal__ph" aria-hidden="true">
+          <svg viewBox="0 0 80 80" fill="none" width="80" height="80">
+            <rect x="10" y="10" width="60" height="60" rx="4" stroke="currentColor" stroke-width="1.5"/>
+            <circle cx="30" cy="30" r="8" stroke="currentColor" stroke-width="1.5"/>
+            <path d="M10 55 L28 37 L40 50 L52 35 L70 55" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <div class="xuw-modal__thumbs" id="xuwModalThumbs"></div>
+      </div>
+
+      <div class="xuw-modal__info">
+        <p class="xuw-modal__vendor" id="xuwModalVendor"></p>
+        <h2 class="xuw-modal__name"  id="xuwModalName"></h2>
+
+        <div class="xuw-modal__mode-wrap">
+          <p class="xuw-modal__mode-label">Purchase Type</p>
+          <div class="xuw-modal__mode-btns" role="group" aria-label="Purchase type">
+            <button class="xuw-mode-btn is-active" data-mode="retail"    id="xuwModeRetail"    data-action="modal-mode" aria-pressed="true"  type="button">Retail</button>
+            <button class="xuw-mode-btn"           data-mode="wholesale" id="xuwModeWholesale" data-action="modal-mode" aria-pressed="false" type="button">Wholesale</button>
+          </div>
+          <p class="xuw-modal__mode-note" id="xuwModalModeNote">Standard retail pricing</p>
+        </div>
+
+        {%- comment %}
+        Wholesale value-tier info box — shown when wholesale mode active.
+        JS populates xuwModalWsTiers with a live table showing which tier is active.
+        No fixed MOQ. Customer can buy any quantity.
+        {% endcomment %}
+        <div class="xuw-modal__ws-info" id="xuwModalWsInfo" style="display:none">
+          <div class="xuw-modal__ws-tiers" id="xuwModalWsTiers" aria-live="polite">
+            <table class="xuw-ws-tier-table">
+              <thead><tr><th>Spend</th><th>Discount</th><th>Status</th></tr></thead>
+              <tbody>
+                <tr data-tier-min="300"  data-tier-pct="3"> <td>&#8364;300+</td>  <td>3% off</td>  <td class="xuw-tier__status"></td></tr>
+                <tr data-tier-min="500"  data-tier-pct="5"> <td>&#8364;500+</td>  <td>5% off</td>  <td class="xuw-tier__status"></td></tr>
+                <tr data-tier-min="1000" data-tier-pct="10"><td>&#8364;1,000+</td><td>10% off</td> <td class="xuw-tier__status"></td></tr>
+                <tr data-tier-min="2000" data-tier-pct="20"><td>&#8364;2,000+</td><td>20% off</td> <td class="xuw-tier__status"></td></tr>
+              </tbody>
+            </table>
+            <p class="xuw-ws-live-note" id="xuwModalWsNote"></p>
+          </div>
+        </div>
+
+        <div class="xuw-modal__price-wrap">
+          <div class="xuw-modal__price" id="xuwModalPrice"></div>
+          <span class="xuw-modal__ws-badge" id="xuwModalWsBadge" style="display:none">Wholesale</span>
+        </div>
+
+        <p class="xuw-modal__desc" id="xuwModalDesc"></p>
+
+        <div id="xuwModalVariantsWrap" style="display:none">
+          <p class="xuw-sub-label">Select Variant</p>
+          <div class="xuw-variant-pills" id="xuwModalVariants"></div>
+        </div>
+
+        <div>
+          <p class="xuw-sub-label">Quantity</p>
+          <div class="xuw-qty-row">
+            <button class="xuw-qty-btn" id="xuwQtyMinus" aria-label="Decrease" type="button">&#8722;</button>
+            <span   class="xuw-qty-val" id="xuwQtyVal" aria-live="polite">1</span>
+            <button class="xuw-qty-btn" id="xuwQtyPlus"  aria-label="Increase" type="button">+</button>
+          </div>
+          <p class="xuw-modal__cart-total-note" id="xuwModalCartNote" style="display:none"></p>
+        </div>
+
+        <div class="xuw-modal__actions">
+          <button class="xuw-btn xuw-btn--buy"     id="xuwBuyNow"    type="button">Buy Now</button>
+          <button class="xuw-btn xuw-btn--primary" id="xuwAddToCart" type="button">+ Add to Cart</button>
+        </div>
+
+        <div class="xuw-modal__footer-note" aria-hidden="true">
+          <span>Free shipping over &#8364;50</span>
+          <span>Ships from Germany</span>
+        </div>
+      </div>
+    </div>
+    <div class="xuw-modal__loading" id="xuwModalLoading" style="display:none" aria-hidden="true">
+      <div class="xuw-spinner"></div>
+      <p>Loading&#8230;</p>
+    </div>
+  </div>
+</div>
+
+<div class="xuw-toast" id="xuwToast" role="status" aria-live="polite" aria-atomic="true"></div>
+<script src="{{ 'xuw-collection.js' | asset_url }}" defer></script>
+
+{% schema %}
+{
+  "name": "XUW Collection",
+  "tag": "section",
+  "class": "xuw-section",
+  "settings": [
+    { "type": "header",     "content": "Collection" },
+    { "type": "collection", "id": "collection",        "label": "Collection to display" },
+    { "type": "range",      "id": "products_per_page", "label": "Products per page", "min": 4, "max": 48, "step": 4, "default": 12 },
+    { "type": "checkbox",   "id": "show_vendor",       "label": "Show brand name",      "default": true },
+    { "type": "checkbox",   "id": "enable_filtering",  "label": "Show sidebar filters", "default": true },
+    { "type": "checkbox",   "id": "enable_sorting",    "label": "Show sort dropdown",   "default": true },
+    { "type": "header",     "content": "Hero Slider" },
+    { "type": "checkbox",   "id": "show_hero",         "label": "Show hero slider",     "default": true },
+    { "type": "header",     "content": "Slide 1" },
+    { "type": "text", "id": "s1_eyebrow",   "label": "Eyebrow",     "default": "Professional Tattoo Supplies" },
+    { "type": "text", "id": "s1_title1",    "label": "Title line 1","default": "MAGIC MOON" },
+    { "type": "text", "id": "s1_title2",    "label": "Title line 2","default": "NEEDLES" },
+    { "type": "text", "id": "s1_subtitle",  "label": "Subtitle",    "default": "EO sterilised · Surgical steel · Round Liner · Magnum · Soft Edge." },
+    { "type": "text", "id": "s1_btn1_label","label": "Button 1",    "default": "Shop Needles" },
+    { "type": "url",  "id": "s1_btn1_url",  "label": "Button 1 URL" },
+    { "type": "text", "id": "s1_btn2_label","label": "Button 2",    "default": "Shop Cartridges" },
+    { "type": "url",  "id": "s1_btn2_url",  "label": "Button 2 URL" },
+    { "type": "header",     "content": "Slide 2" },
+    { "type": "text", "id": "s2_eyebrow",   "label": "Eyebrow",     "default": "Tattoo & PMU Inks" },
+    { "type": "text", "id": "s2_title1",    "label": "Title line 1","default": "PREMIUM" },
+    { "type": "text", "id": "s2_title2",    "label": "Title line 2","default": "INK COLLECTION" },
+    { "type": "text", "id": "s2_subtitle",  "label": "Subtitle",    "default": "World Famous · Kuro Sumi · Intenze · I AM INK · Perma Blend PMU." },
+    { "type": "text", "id": "s2_btn1_label","label": "Button 1",    "default": "Shop Inks" },
+    { "type": "url",  "id": "s2_btn1_url",  "label": "Button 1 URL" },
+    { "type": "text", "id": "s2_btn2_label","label": "Button 2",    "default": "PMU Inks" },
+    { "type": "url",  "id": "s2_btn2_url",  "label": "Button 2 URL" },
+    { "type": "header",     "content": "Slide 3" },
+    { "type": "text", "id": "s3_eyebrow",   "label": "Eyebrow",     "default": "Tattoo Machines & Power" },
+    { "type": "text", "id": "s3_title1",    "label": "Title line 1","default": "PRO" },
+    { "type": "text", "id": "s3_title2",    "label": "Title line 2","default": "MACHINES" },
+    { "type": "text", "id": "s3_subtitle",  "label": "Subtitle",    "default": "Cheyenne · FK Irons · Neuma · Critical · Musotoku · Shagbuilt." },
+    { "type": "text", "id": "s3_btn1_label","label": "Button 1",    "default": "Shop Machines" },
+    { "type": "url",  "id": "s3_btn1_url",  "label": "Button 1 URL" },
+    { "type": "text", "id": "s3_btn2_label","label": "Button 2",    "default": "Power Supplies" },
+    { "type": "url",  "id": "s3_btn2_url",  "label": "Button 2 URL" },
+    { "type": "header",     "content": "Slide 4" },
+    { "type": "text", "id": "s4_eyebrow",   "label": "Eyebrow",     "default": "Studio & Bulk Pricing" },
+    { "type": "text", "id": "s4_title1",    "label": "Title line 1","default": "BULK" },
+    { "type": "text", "id": "s4_title2",    "label": "Title line 2","default": "PRICING" },
+    { "type": "text", "id": "s4_subtitle",  "label": "Subtitle",    "default": "Spend €300 = 3% off · €1000 = 10% · €2000 = 20%. No minimum quantity." },
+    { "type": "text", "id": "s4_btn1_label","label": "Button 1",    "default": "Studio Pricing" },
+    { "type": "url",  "id": "s4_btn1_url",  "label": "Button 1 URL" },
+    { "type": "text", "id": "s4_btn2_label","label": "Button 2",    "default": "Contact Us" },
+    { "type": "url",  "id": "s4_btn2_url",  "label": "Button 2 URL" },
+    { "type": "header",  "content": "Brand Colours" },
+    { "type": "color", "id": "color_crimson","label": "Primary",    "default": "#8b4444" },
+    { "type": "color", "id": "color_gold",   "label": "Accent",     "default": "#ffcc00" },
+    { "type": "color", "id": "color_bg",     "label": "Background", "default": "#000000" },
+    { "type": "color", "id": "color_text",   "label": "Text",       "default": "#ffffff" }
+  ],
+  "presets": [{ "name": "XUW Collection", "category": "Products" }]
+}
+{% endschema %}

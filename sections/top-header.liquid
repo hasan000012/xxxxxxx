@@ -1,0 +1,316 @@
+<div class="topbar-section section section--{{ section.settings.section_width }}">   
+  <div class="section-resource-list__header">
+    <div class="group-block group-block--height-fit group-block--width-fill border-style spacing-style  size-style topbar-container">
+      {% for block in section.blocks %}
+          {% case block.type %}
+             {% when 'top-social-icons' %}
+              <div class="group-block">
+                <div class="top-header-icons" style="--icon-color: {{ block.settings.icon_color }}; --icon-bg: {{ block.settings.icon_bg_color }}; --icon-hover-color: {{ block.settings.icon_hover_color }};
+                --icon-hover-bg: {{ block.settings.icon_hover_bg }};">
+                   {% if block.settings.facebook_top_link != blank %}
+                      <a href="{{ block.settings.facebook_top_link }}" target="_blank" aria-label="Facebook">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                          <path fill="none" stroke="currentColor" stroke-width="2" d="M17 14h-3v8h-4v-8H7v-4h3V7a5 5 0 0 1 5-5h3v4h-3q-1 0-1 1v3h4Z"/>
+                        </svg>
+                      </a>
+                    {% endif %}
+
+                     {% if block.settings.instagram_top_link != blank %}
+                        <a href="{{ block.settings.instagram_top_link }}" target="_blank" aria-label="Instagram">
+                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                            <g fill="none" stroke="currentColor" stroke-width="2">
+                              <circle cx="12" cy="12" r="4"/>
+                              <rect width="20" height="20" x="2" y="2" rx="5"/>
+                            </g>
+                          </svg>
+                        </a>
+                      {% endif %}
+
+                       {% if block.settings.twitter_top_link != blank %}
+                        <a href="{{ block.settings.twitter_top_link }}" target="_blank" aria-label="Twitter">
+                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 14 14">
+                            <path fill="none" stroke="currentColor" stroke-width="1.5" d="M4 9.4a6.77 6.77 0 0 1-2.41 1.21c-.5.16-.5.9 0 .94C8.51 14.39 12.91 10 12.24 5.13l1.12-2.32h-1.3C10.44.82 6.14.92 6.85 5.16c0 0-2.3.41-5.24-2.48A.5.5 0 0 0 .76 3A5.52 5.52 0 0 0 4 9.4"/>
+                          </svg>
+                        </a>
+                      {% endif %}
+
+                      {% if block.settings.linkedin_top_link != blank %}
+                        <a href="{{ block.settings.linkedin_top_link }}" target="_blank" aria-label="LinkedIn">
+                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 14 14">
+                            <path fill="none" stroke="currentColor" stroke-width="1.5" d="M3.574 1.767a1.316 1.316 0 0 1-1.287 1.326A1.346 1.346 0 0 1 .99 1.767A1.326 1.326 0 0 1 2.287.5a1.316 1.316 0 0 1 1.287 1.267M1.129 5.449c0-.762.485-.643 1.158-.643c.673 0 1.148-.119 1.148.643v7.424c0 .772-.485.614-1.148.614c-.663 0-1.158.158-1.158-.614zm4.306.001c0-.426.158-.585.405-.634c.248-.05 1.099 0 1.396 0c.297 0 .416.485.406.851a2.485 2.485 0 0 1 2.217-.99a2.97 2.97 0 0 1 3.148 3.098v5.068c0 .772-.475.614-1.149.614c-.673 0-1.148.158-1.148-.614V8.884A1.425 1.425 0 0 0 9.206 7.34A1.435 1.435 0 0 0 7.74 8.914v3.959c0 .772-.485.614-1.158.614c-.673 0-1.148.158-1.148-.614V5.449Z"/>
+                          </svg>
+                        </a>
+                      {% endif %}
+
+                      {% if block.settings.youtube_top_link != blank %}
+                        <a href="{{ block.settings.youtube_top_link }}" target="_blank" aria-label="YouTube">
+                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                            <path fill="currentColor" d="M19 4H5a3 3 0 0 0-3 3v10a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3V7a3 3 0 0 0-3-3zm-6 11l-4-2V9l4 2l4-2v4l-4 2z"/>
+                          </svg>
+                        </a>
+                      {% endif %}
+                </div>
+              </div>              
+              {% when 'header-menu' %}
+               <div class="group-block">
+                  <nav class="top-header-menu" style="
+    --menu-color: {{ block.settings.topbar_menu_color }};
+    --menu-hover-color: {{ block.settings.topbar_menu_hover_color }};
+  ">
+                    <ul class="list-menu list-menu--inline">
+                      {% for link in linklists[block.settings.menu].links %}
+                        <li>
+                          <a href="{{ link.url }}" class="list-menu__item link">
+                            {{ link.title }}
+                          </a>
+                        </li>
+                      {% endfor %}
+                    </ul>
+                  </nav>
+               </div>
+               {% when 'button' %}
+                 <div class="group-block">
+                    <a href="{{ block.settings.topbar_btn_url }}" class="button header-top-btn" style="color:{{ block.settings.button_text_color }}; background-color:{{ block.settings.button_bg_color }}; padding:10px 20px">
+                        {{ block.settings.topbar_btn_text }}
+                    </a>
+                 </div> 
+          {% endcase %}  
+      {% endfor %}  
+    </div>
+  </div>  
+</div>  
+<style>
+.section-top-header{
+  background-color: {{ section.settings.section_bg }};
+  padding-top: {{ section.settings.padding-block-start }}px;
+  padding-bottom: {{ section.settings.padding-block-end }}px;
+}
+
+.topbar-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.top-header-icons {
+  display: flex;
+  gap: 10px;
+}
+
+.top-header-icons a {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--icon-bg);
+  color: var(--icon-color);
+  transition: all 0.3s ease;
+}
+
+.top-header-icons a:hover {
+  background: var(--icon-hover-bg);
+  color: var(--icon-hover-color);
+}
+
+.top-header-icons svg {
+  width: 18px;
+  height: 18px;
+}
+
+nav.top-header-menu ul {
+    list-style: none;
+    margin: 0px;
+    padding: 0px;
+    text-align: center;
+}
+
+nav.top-header-menu ul li {
+    display: inline-flex;
+    padding: 0px 10px;
+}
+
+nav.top-header-menu ul li a {
+  display: block;
+  color: var(--menu-color);
+  font-weight: 500;
+}
+
+nav.top-header-menu ul li a:hover {
+  color: var(--menu-hover-color);
+}
+
+</style>
+
+{% schema %}
+{
+  "name": "Top Header",
+  "tag": "section",
+  "class": "section-top-header",
+  "enabled_on": {
+    "groups": ["header"]
+  },
+  "settings": [
+    {
+      "type": "color",
+      "id": "section_bg",
+      "label": "Background Color",
+      "default": "#000000"
+    },
+    {
+      "type": "select",
+      "id": "section_width",
+      "label": "Section Width",
+      "options": [
+        { "value": "page-width", "label": "Page Width" },
+        { "value": "full-width", "label": "Full Width" }
+      ],
+      "default": "page-width"
+    },
+    {
+      "type": "range",
+      "id": "padding-block-start",
+      "label": "Top Padding",
+      "min": 0,
+      "max": 100,
+      "step": 1,
+      "default": 15
+    },
+    {
+      "type": "range",
+      "id": "padding-block-end",
+      "label": "Bottom Padding",
+      "min": 0,
+      "max": 100,
+      "step": 1,
+      "default": 15
+    }
+  ],
+  "blocks": [
+    {
+      "type": "top-social-icons",
+      "name": "Social Icons",
+      "settings": [
+        {
+          "type": "color",
+          "id": "icon_color",
+          "label": "Icon Color",
+          "default": "#ffffff"
+        },
+        {
+          "type": "color",
+          "id": "icon_bg_color",
+          "label": "Icon Background",
+          "default": "#000000"
+        },
+        {
+          "type": "color",
+          "id": "icon_hover_color",
+          "label": "Hover Icon Color",
+          "default": "#ffffff"
+        },
+        {
+          "type": "color",
+          "id": "icon_hover_bg",
+          "label": "Hover Background",
+          "default": "#333333"
+        },
+
+        {
+          "type": "url",
+          "id": "facebook_top_link",
+          "label": "Facebook Link"
+        },
+        {
+          "type": "url",
+          "id": "instagram_top_link",
+          "label": "Instagram Link"
+        },
+        {
+          "type": "url",
+          "id": "twitter_top_link",
+          "label": "Twitter Link"
+        },
+        {
+          "type": "url",
+          "id": "linkedin_top_link",
+          "label": "LinkedIn Link"
+        },
+        {
+          "type": "url",
+          "id": "youtube_top_link",
+          "label": "YouTube Link"
+        }
+      ]
+    },
+    {
+      "type": "header-menu",
+      "name": "Top Header Menu",
+      "settings": [
+        {
+          "type":"header",
+          "content": "Topbar Menu Options"
+        },
+        {
+          "type": "link_list",
+          "id": "menu",
+          "label": "Select Menu"
+        },
+        {
+          "type": "color",
+          "id": "topbar_menu_color",
+          "label":"Menu Item Color",
+          "default":"#ffffff"
+        },
+         {
+          "type": "color",
+          "id": "topbar_menu_hover_color",
+          "label":"Menu Item Hover Color",
+          "default":"#f1f1f1"
+        }
+      ]
+
+    },
+    {
+      "type": "button",
+      "name": "Button",
+      "settings": [
+        {
+          "type": "text",
+          "id": "topbar_btn_text",
+          "label": "Button Text",
+          "default": "Button"
+        },
+        {
+          "type": "url",
+          "id": "topbar_btn_url",
+          "label": "Button URL"
+        },
+        {
+          "type": "color",
+          "id": "button_text_color",
+          "label": "Text Color",
+          "default": "#ffffff"
+        },
+        {
+          "type": "color",
+          "id": "button_bg_color",
+          "label": "Background Color",
+          "default": "#000000"
+        },
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "Top Header",
+      "blocks": [
+        { "type": "top-social-icons" },
+        { "type": "header-menu" },
+        { "type": "button" }
+      ]
+    }
+  ]
+}
+{% endschema %}
