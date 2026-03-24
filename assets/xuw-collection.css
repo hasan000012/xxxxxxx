@@ -436,3 +436,14 @@
 
 /* ══ V9: MOQ badge on card ══ */
 .xuw-card__moq-badge { display:inline-block; background:rgba(46,125,50,.15); border:1px solid rgba(102,187,106,.35); color:var(--xuw-green-lt,#66bb6a); font-size:9px; font-weight:700; letter-spacing:1px; text-transform:uppercase; padding:2px 8px; margin-top:5px; }
+
+/* ══ XUW elements inside standard Horizon product cards ══ */
+product-card.xuw-card .xuw-card__mode-toggle,
+product-card.xuw-card .xuw-card__quick-buy {
+  position: relative;
+  z-index: 2;
+  margin-top: 8px;
+}
+product-card.xuw-card .xuw-card__quick-buy {
+  width: 100%;
+}

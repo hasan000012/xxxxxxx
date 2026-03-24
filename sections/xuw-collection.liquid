@@ -59,7 +59,7 @@
     --xuw-white   : {{ c_text }};
   }
 </style>
-<link rel="stylesheet" href="{{ 'xuw-collection.css' | asset_url }}">
+{%- comment %} CSS + JS now loaded globally via snippets/xuw-global.liquid {% endcomment %}
 
 {%- comment %} ══ 4-SLIDE HERO CAROUSEL ══ {% endcomment %}
 {%- if show_hero -%}
@@ -640,98 +640,7 @@
   </main>
 </div>
 
-{%- comment %} ══ QUICK BUY MODAL ══ {% endcomment %}
-<div class="xuw-modal-overlay" id="xuwModalOverlay" role="dialog" aria-modal="true" aria-hidden="true" aria-label="Quick Buy">
-  <div class="xuw-modal" id="xuwModal">
-    <button class="xuw-modal__close" id="xuwModalClose" aria-label="Close" type="button">&#10005;</button>
-    <div class="xuw-modal__inner">
-      <div class="xuw-modal__media">
-        <img id="xuwModalImg" src="" alt="" loading="lazy" style="display:none;width:100%;height:100%;object-fit:cover;">
-        <div id="xuwModalImgPh" class="xuw-modal__ph" aria-hidden="true">
-          <svg viewBox="0 0 80 80" fill="none" width="80" height="80">
-            <rect x="10" y="10" width="60" height="60" rx="4" stroke="currentColor" stroke-width="1.5"/>
-            <circle cx="30" cy="30" r="8" stroke="currentColor" stroke-width="1.5"/>
-            <path d="M10 55 L28 37 L40 50 L52 35 L70 55" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
-          </svg>
-        </div>
-        <div class="xuw-modal__thumbs" id="xuwModalThumbs"></div>
-      </div>
-
-      <div class="xuw-modal__info">
-        <p class="xuw-modal__vendor" id="xuwModalVendor"></p>
-        <h2 class="xuw-modal__name"  id="xuwModalName"></h2>
-
-        <div class="xuw-modal__mode-wrap">
-          <p class="xuw-modal__mode-label">Purchase Type</p>
-          <div class="xuw-modal__mode-btns" role="group" aria-label="Purchase type">
-            <button class="xuw-mode-btn is-active" data-mode="retail"    id="xuwModeRetail"    data-action="modal-mode" aria-pressed="true"  type="button">Retail</button>
-            <button class="xuw-mode-btn"           data-mode="wholesale" id="xuwModeWholesale" data-action="modal-mode" aria-pressed="false" type="button">Wholesale</button>
-          </div>
-          <p class="xuw-modal__mode-note" id="xuwModalModeNote">Standard retail pricing</p>
-        </div>
-
-        {%- comment %}
-        Wholesale value-tier info box — shown when wholesale mode active.
-        JS populates xuwModalWsTiers with a live table showing which tier is active.
-        No fixed MOQ. Customer can buy any quantity.
-        {% endcomment %}
-        <div class="xuw-modal__ws-info" id="xuwModalWsInfo" style="display:none">
-          <div class="xuw-modal__ws-tiers" id="xuwModalWsTiers" aria-live="polite">
-            <table class="xuw-ws-tier-table">
-              <thead><tr><th>Spend</th><th>Discount</th><th>Status</th></tr></thead>
-              <tbody>
-                <tr data-tier-min="300"  data-tier-pct="3"> <td>&#8364;300+</td>  <td>3% off</td>  <td class="xuw-tier__status"></td></tr>
-                <tr data-tier-min="500"  data-tier-pct="5"> <td>&#8364;500+</td>  <td>5% off</td>  <td class="xuw-tier__status"></td></tr>
-                <tr data-tier-min="1000" data-tier-pct="10"><td>&#8364;1,000+</td><td>10% off</td> <td class="xuw-tier__status"></td></tr>
-                <tr data-tier-min="2000" data-tier-pct="20"><td>&#8364;2,000+</td><td>20% off</td> <td class="xuw-tier__status"></td></tr>
-              </tbody>
-            </table>
-            <p class="xuw-ws-live-note" id="xuwModalWsNote"></p>
-          </div>
-        </div>
-
-        <div class="xuw-modal__price-wrap">
-          <div class="xuw-modal__price" id="xuwModalPrice"></div>
-          <span class="xuw-modal__ws-badge" id="xuwModalWsBadge" style="display:none">Wholesale</span>
-        </div>
-
-        <p class="xuw-modal__desc" id="xuwModalDesc"></p>
-
-        <div id="xuwModalVariantsWrap" style="display:none">
-          <p class="xuw-sub-label">Select Variant</p>
-          <div class="xuw-variant-pills" id="xuwModalVariants"></div>
-        </div>
-
-        <div>
-          <p class="xuw-sub-label">Quantity</p>
-          <div class="xuw-qty-row">
-            <button class="xuw-qty-btn" id="xuwQtyMinus" aria-label="Decrease" type="button">&#8722;</button>
-            <span   class="xuw-qty-val" id="xuwQtyVal" aria-live="polite">1</span>
-            <button class="xuw-qty-btn" id="xuwQtyPlus"  aria-label="Increase" type="button">+</button>
-          </div>
-          <p class="xuw-modal__cart-total-note" id="xuwModalCartNote" style="display:none"></p>
-        </div>
-
-        <div class="xuw-modal__actions">
-          <button class="xuw-btn xuw-btn--buy"     id="xuwBuyNow"    type="button">Buy Now</button>
-          <button class="xuw-btn xuw-btn--primary" id="xuwAddToCart" type="button">+ Add to Cart</button>
-        </div>
-
-        <div class="xuw-modal__footer-note" aria-hidden="true">
-          <span>Free shipping over &#8364;50</span>
-          <span>Ships from Germany</span>
-        </div>
-      </div>
-    </div>
-    <div class="xuw-modal__loading" id="xuwModalLoading" style="display:none" aria-hidden="true">
-      <div class="xuw-spinner"></div>
-      <p>Loading&#8230;</p>
-    </div>
-  </div>
-</div>
-
-<div class="xuw-toast" id="xuwToast" role="status" aria-live="polite" aria-atomic="true"></div>
-<script src="{{ 'xuw-collection.js' | asset_url }}" defer></script>
+{%- comment %} Modal, toast, CSS and JS are now loaded globally via snippets/xuw-global.liquid in layout/theme.liquid {% endcomment %}
 
 {% schema %}
 {

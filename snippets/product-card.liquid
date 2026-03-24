@@ -53,13 +53,46 @@
   if product.id == empty or product == blank
     assign onboarding = true
   endif
+
+  # XUW wholesale detection
+  assign pc_is_wholesale = false
+  assign pc_moq = 1
+  for pc_tag in product.tags
+    assign pc_tag_lower = pc_tag | downcase
+    if pc_tag_lower == 'wholesale'
+      assign pc_is_wholesale = true
+    endif
+    if pc_tag_lower contains 'moq-'
+      assign pc_moq_str = pc_tag_lower | remove: 'moq-'
+      assign pc_moq = pc_moq_str | plus: 0
+    endif
+  endfor
+
+  assign pc_retail_variant = nil
+  for pc_v in product.variants
+    assign pc_vt_lower = pc_v.title | downcase
+    if pc_vt_lower != 'wholesale' and pc_retail_variant == nil and pc_v.available
+      assign pc_retail_variant = pc_v
+    endif
+  endfor
+  if pc_retail_variant == nil
+    assign pc_retail_variant = product.selected_or_first_available_variant
+  endif
 %}
 
 <product-card
-  class="product-card size-style"
+  class="product-card size-style{% if pc_is_wholesale %} xuw-card{% endif %}"
   style="{% render 'size-style', settings: block_settings %}"
   data-product-id="{{ product.id }}"
   id="product-card-{{ block.id }}"
+  {% if pc_is_wholesale %}
+    data-wholesale="true"
+    data-current-mode="retail"
+    data-handle="{{ product.handle }}"
+    data-moq="{{ pc_moq }}"
+    data-price="{{ pc_retail_variant.price }}"
+    data-available="{{ product.available }}"
+  {% endif %}
   {% if settings.transition_to_main_product %}
     data-product-transition="true"
     data-featured-media-url="{{ featured_media_url }}"
@@ -108,6 +141,20 @@
     "
   >
     {{ children }}
+    {%- if pc_is_wholesale -%}
+      <div class="xuw-card__mode-toggle" role="group" aria-label="Select pricing">
+        <button class="xuw-card__mode-btn is-active" data-mode="retail"
+          data-action="card-mode" data-product-id="{{ product.id }}"
+          aria-pressed="true" type="button">Retail</button>
+        <button class="xuw-card__mode-btn" data-mode="wholesale"
+          data-action="card-mode" data-product-id="{{ product.id }}"
+          aria-pressed="false" type="button">Wholesale</button>
+      </div>
+      <button class="xuw-btn xuw-btn--buy xuw-card__quick-buy"
+        data-action="quick-buy" data-handle="{{ product.handle }}"
+        aria-label="Quick buy {{ product.title | escape }}"
+        type="button">Quick Buy</button>
+    {%- endif -%}
   </div>
 </product-card>
 
