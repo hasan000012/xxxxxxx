@@ -34,7 +34,11 @@
 {%- liquid
   assign col              = section.settings.collection
   if col == blank
-    assign col = collections.all
+    if request.page_type == 'collection' and collection != blank
+      assign col = collection
+    else
+      assign col = collections.all
+    endif
   endif
   assign products_per_page = section.settings.products_per_page | default: 12
   assign show_vendor        = section.settings.show_vendor

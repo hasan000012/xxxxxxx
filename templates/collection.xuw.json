@@ -1,0 +1,21 @@
+{
+  "sections": {
+    "xuw_col": {
+      "type": "xuw-collection",
+      "name": "XUW Collection",
+      "settings": {
+        "collection": "",
+        "products_per_page": 24,
+        "show_vendor": true,
+        "enable_filtering": true,
+        "enable_sorting": true,
+        "show_hero": false,
+        "color_crimson": "#8b4444",
+        "color_gold": "#ffcc00",
+        "color_bg": "#000000",
+        "color_text": "#ffffff"
+      }
+    }
+  },
+  "order": ["xuw_col"]
+}

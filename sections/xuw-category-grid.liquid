@@ -1,0 +1,331 @@
+{% comment %}
+  XUW Category Grid — sections/xuw-category-grid.liquid
+  Amazon-style visual category tiles for instant navigation.
+  Built for tattoo artists who need to find products fast.
+{% endcomment %}
+
+{%- liquid
+  assign bg_color   = section.settings.bg_color   | default: '#0a0a0a'
+  assign text_color = section.settings.text_color | default: '#ffffff'
+  assign accent     = section.settings.accent_color | default: '#c0392b'
+  assign title      = section.settings.title | default: 'Shop by Category'
+  assign title_parts = title | split: ' '
+  assign title_first = title_parts | first
+  assign title_rest  = title_parts | slice: 1, 10 | join: ' '
+-%}
+
+<style>
+  #xuwCatGrid-{{ section.id }} {
+    background: {{ bg_color }};
+    color: {{ text_color }};
+    padding: 52px 24px 48px;
+  }
+  #xuwCatGrid-{{ section.id }} .xcg-heading {
+    text-align: center;
+    font-size: clamp(1.4rem, 3vw, 2rem);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    margin: 0 0 32px;
+    color: {{ text_color }};
+  }
+  #xuwCatGrid-{{ section.id }} .xcg-heading__accent {
+    color: {{ accent }};
+  }
+  #xuwCatGrid-{{ section.id }} .xcg-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+    gap: 12px;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+  @media (min-width: 640px) {
+    #xuwCatGrid-{{ section.id }} .xcg-grid {
+      grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+      gap: 14px;
+    }
+  }
+  @media (min-width: 1024px) {
+    #xuwCatGrid-{{ section.id }} .xcg-grid {
+      grid-template-columns: repeat(7, 1fr);
+      gap: 16px;
+    }
+  }
+
+  /* — Base tile — */
+  #xuwCatGrid-{{ section.id }} .xcg-tile {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 20px 10px 18px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 10px;
+    text-decoration: none;
+    color: {{ text_color }};
+    transition: background 0.16s ease, border-color 0.16s ease, transform 0.16s ease;
+    text-align: center;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+  }
+  #xuwCatGrid-{{ section.id }} .xcg-tile:hover,
+  #xuwCatGrid-{{ section.id }} .xcg-tile:focus-visible {
+    background: rgba(255,255,255,0.09);
+    border-color: {{ accent }};
+    transform: translateY(-3px);
+    outline: none;
+  }
+  #xuwCatGrid-{{ section.id }} .xcg-tile:active {
+    transform: translateY(-1px);
+  }
+
+  /* — Featured (spans 2 cols) — */
+  #xuwCatGrid-{{ section.id }} .xcg-tile--featured {
+    grid-column: span 2;
+    flex-direction: row;
+    justify-content: flex-start;
+    text-align: left;
+    padding: 18px 20px;
+    background: rgba(192,57,43,0.10);
+    border-color: rgba(192,57,43,0.35);
+    gap: 14px;
+  }
+  #xuwCatGrid-{{ section.id }} .xcg-tile--featured:hover {
+    background: rgba(192,57,43,0.18);
+    border-color: {{ accent }};
+  }
+  #xuwCatGrid-{{ section.id }} .xcg-tile--featured .xcg-tile__info {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    text-align: left;
+  }
+  #xuwCatGrid-{{ section.id }} .xcg-tile--featured .xcg-tile__name {
+    font-size: 0.88rem;
+  }
+  @media (max-width: 480px) {
+    #xuwCatGrid-{{ section.id }} .xcg-tile--featured {
+      grid-column: span 1;
+      flex-direction: column;
+      text-align: center;
+    }
+    #xuwCatGrid-{{ section.id }} .xcg-tile--featured .xcg-tile__info {
+      text-align: center;
+    }
+  }
+
+  /* — Wholesale tile — */
+  #xuwCatGrid-{{ section.id }} .xcg-tile--wholesale {
+    background: rgba(192,57,43,0.08);
+    border-color: rgba(192,57,43,0.3);
+  }
+  #xuwCatGrid-{{ section.id }} .xcg-tile--wholesale:hover {
+    background: rgba(192,57,43,0.20);
+    border-color: {{ accent }};
+  }
+
+  /* — Icon circle — */
+  #xuwCatGrid-{{ section.id }} .xcg-tile__icon {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.07);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    flex-shrink: 0;
+    line-height: 1;
+  }
+  #xuwCatGrid-{{ section.id }} .xcg-tile--wholesale .xcg-tile__icon,
+  #xuwCatGrid-{{ section.id }} .xcg-tile--featured .xcg-tile__icon {
+    background: rgba(192,57,43,0.18);
+  }
+
+  /* — Text — */
+  #xuwCatGrid-{{ section.id }} .xcg-tile__name {
+    font-size: 0.76rem;
+    font-weight: 600;
+    line-height: 1.35;
+    letter-spacing: 0.01em;
+  }
+  #xuwCatGrid-{{ section.id }} .xcg-tile__count {
+    font-size: 0.67rem;
+    opacity: 0.48;
+    margin-top: -4px;
+  }
+
+  /* — Browse all CTA — */
+  #xuwCatGrid-{{ section.id }} .xcg-browse-all {
+    display: flex;
+    justify-content: center;
+    margin-top: 30px;
+  }
+  #xuwCatGrid-{{ section.id }} .xcg-browse-all__link {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 11px 30px;
+    background: transparent;
+    border: 1.5px solid {{ accent }};
+    border-radius: 6px;
+    color: {{ text_color }};
+    font-size: 0.82rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    text-decoration: none;
+    transition: background 0.16s ease;
+  }
+  #xuwCatGrid-{{ section.id }} .xcg-browse-all__link:hover {
+    background: {{ accent }};
+    color: #fff;
+  }
+</style>
+
+<section id="xuwCatGrid-{{ section.id }}" aria-label="{{ title | escape }}">
+
+  <h2 class="xcg-heading">
+    {{ title_first }}&nbsp;<span class="xcg-heading__accent">{{ title_rest }}</span>
+  </h2>
+
+  <div class="xcg-grid">
+
+    {%- comment %} ── FEATURED: 2-col tiles for #1 and #2 products ── {% endcomment %}
+    <a href="/collections/magic-moon-needles" class="xcg-tile xcg-tile--featured">
+      <div class="xcg-tile__icon" aria-hidden="true">&#128394;</div>
+      <div class="xcg-tile__info">
+        <span class="xcg-tile__name">Magic Moon Needles</span>
+        <span class="xcg-tile__count">142 products &middot; EO Sterilised</span>
+      </div>
+    </a>
+
+    <a href="/collections/magic-moon-cartridges" class="xcg-tile xcg-tile--featured">
+      <div class="xcg-tile__icon" aria-hidden="true">&#127820;</div>
+      <div class="xcg-tile__info">
+        <span class="xcg-tile__name">Magic Moon Cartridges</span>
+        <span class="xcg-tile__count">280+ products &middot; Bio &amp; Comfort</span>
+      </div>
+    </a>
+
+    {%- comment %} ── STANDARD tiles ── {% endcomment %}
+    <a href="/collections/tattoo-inks" class="xcg-tile">
+      <div class="xcg-tile__icon" aria-hidden="true">&#127870;</div>
+      <span class="xcg-tile__name">Tattoo Inks</span>
+      <span class="xcg-tile__count">240+ products</span>
+    </a>
+
+    <a href="/collections/tattoo-machines" class="xcg-tile">
+      <div class="xcg-tile__icon" aria-hidden="true">&#9889;</div>
+      <span class="xcg-tile__name">Machines &amp; Power</span>
+      <span class="xcg-tile__count">200+ products</span>
+    </a>
+
+    <a href="/collections/kwadron-cartridges-round-liner" class="xcg-tile">
+      <div class="xcg-tile__icon" aria-hidden="true">&#128081;</div>
+      <span class="xcg-tile__name">Cartridges by Brand</span>
+      <span class="xcg-tile__count">Kwadron &middot; Lunar PMU</span>
+    </a>
+
+    <a href="/collections/perma-blend-luxe-pmu-inks" class="xcg-tile">
+      <div class="xcg-tile__icon" aria-hidden="true">&#128138;</div>
+      <span class="xcg-tile__name">PMU Inks &amp; Tools</span>
+      <span class="xcg-tile__count">80+ products</span>
+    </a>
+
+    <a href="/collections/barrier-film-covers" class="xcg-tile">
+      <div class="xcg-tile__icon" aria-hidden="true">&#129657;</div>
+      <span class="xcg-tile__name">Hygiene &amp; Safety</span>
+      <span class="xcg-tile__count">91 products</span>
+    </a>
+
+    <a href="/collections/tattoo-aftercare-products" class="xcg-tile">
+      <div class="xcg-tile__icon" aria-hidden="true">&#129351;</div>
+      <span class="xcg-tile__name">Aftercare</span>
+      <span class="xcg-tile__count">41 products</span>
+    </a>
+
+    <a href="/collections/stencil-transfer-paper" class="xcg-tile">
+      <div class="xcg-tile__icon" aria-hidden="true">&#128221;</div>
+      <span class="xcg-tile__name">Stencil &amp; Transfer</span>
+      <span class="xcg-tile__count">62 products</span>
+    </a>
+
+    <a href="/collections/uni-posca-paint-markers" class="xcg-tile">
+      <div class="xcg-tile__icon" aria-hidden="true">&#127912;</div>
+      <span class="xcg-tile__name">Art &amp; Drawing</span>
+      <span class="xcg-tile__count">114 products</span>
+    </a>
+
+    <a href="/collections/tattoo-workz-furniture-chairs" class="xcg-tile">
+      <div class="xcg-tile__icon" aria-hidden="true">&#127968;</div>
+      <span class="xcg-tile__name">Studio Equipment</span>
+      <span class="xcg-tile__count">30+ products</span>
+    </a>
+
+    <a href="/collections/magic-moon-accessories" class="xcg-tile">
+      <div class="xcg-tile__icon" aria-hidden="true">&#127959;</div>
+      <span class="xcg-tile__name">Accessories</span>
+      <span class="xcg-tile__count">103 products</span>
+    </a>
+
+    <a href="/collections/tattoo-sketchbooks-art-books" class="xcg-tile">
+      <div class="xcg-tile__icon" aria-hidden="true">&#128218;</div>
+      <span class="xcg-tile__name">Books &amp; Education</span>
+      <span class="xcg-tile__count">43 products</span>
+    </a>
+
+    {%- comment %} ── Wholesale CTA tile ── {% endcomment %}
+    <a href="/collections/all" class="xcg-tile xcg-tile--wholesale">
+      <div class="xcg-tile__icon" aria-hidden="true">&#128176;</div>
+      <span class="xcg-tile__name">Wholesale Pricing</span>
+      <span class="xcg-tile__count">&euro;300+ = 3% off</span>
+    </a>
+
+  </div>
+
+  <div class="xcg-browse-all">
+    <a href="/collections/all" class="xcg-browse-all__link">Browse All 1,826+ Products &#8594;</a>
+  </div>
+
+</section>
+
+{% schema %}
+{
+  "name": "XUW Category Grid",
+  "tag": "div",
+  "settings": [
+    {
+      "type": "text",
+      "id": "title",
+      "label": "Section title",
+      "default": "Shop by Category"
+    },
+    {
+      "type": "color",
+      "id": "bg_color",
+      "label": "Background",
+      "default": "#0a0a0a"
+    },
+    {
+      "type": "color",
+      "id": "text_color",
+      "label": "Text colour",
+      "default": "#ffffff"
+    },
+    {
+      "type": "color",
+      "id": "accent_color",
+      "label": "Accent colour",
+      "default": "#c0392b"
+    }
+  ],
+  "presets": [
+    {
+      "name": "XUW Category Grid"
+    }
+  ]
+}
+{% endschema %}

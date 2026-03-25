@@ -1,0 +1,137 @@
+{% comment %}
+  XUW Product Nav — snippets/xuw-product-nav.liquid
+  Scrollable quick-category bar shown at the top of every product page.
+  Lets impatient tattoo artists jump to related collections in one tap.
+  Usage: {% render 'xuw-product-nav', product: product %}
+{% endcomment %}
+
+{%- liquid
+  assign p_tags = product.tags | join: ',' | downcase
+  assign p_type = product.type | downcase
+  assign p_vend = product.vendor | downcase
+-%}
+
+<nav class="xuw-pnav" aria-label="Shop categories">
+  <div class="xuw-pnav__scroll">
+
+    <span class="xuw-pnav__label">Browse:</span>
+
+    {%- if p_vend contains 'magic moon' or p_type contains 'needle' or p_tags contains 'needle' -%}
+      <a href="/collections/magic-moon-needles" class="xuw-pnav__chip">Needles</a>
+    {%- endif -%}
+
+    {%- if p_type contains 'cartridge' or p_tags contains 'cartridge' -%}
+      <a href="/collections/magic-moon-cartridges" class="xuw-pnav__chip">Cartridges</a>
+    {%- endif -%}
+
+    {%- if p_type contains 'ink' or p_tags contains 'ink' or p_tags contains 'tattoo-ink' -%}
+      <a href="/collections/tattoo-inks" class="xuw-pnav__chip">Inks</a>
+    {%- endif -%}
+
+    {%- if p_type contains 'machine' or p_tags contains 'machine' or p_type contains 'power' or p_tags contains 'power-supply' -%}
+      <a href="/collections/tattoo-machines" class="xuw-pnav__chip">Machines &amp; Power</a>
+    {%- endif -%}
+
+    {%- if p_tags contains 'pmu' or p_tags contains 'permanent makeup' or p_vend contains 'perma blend' or p_vend contains 'lunar' -%}
+      <a href="/collections/perma-blend-luxe-pmu-inks" class="xuw-pnav__chip">PMU</a>
+    {%- endif -%}
+
+    {%- if p_type contains 'aftercare' or p_tags contains 'aftercare' or p_vend contains 'hustle butter' or p_vend contains 'dermalize' -%}
+      <a href="/collections/tattoo-aftercare-products" class="xuw-pnav__chip">Aftercare</a>
+    {%- endif -%}
+
+    {%- if p_type contains 'hygiene' or p_type contains 'glove' or p_tags contains 'barrier' or p_tags contains 'hygiene' or p_tags contains 'glove' -%}
+      <a href="/collections/barrier-film-covers" class="xuw-pnav__chip">Hygiene</a>
+    {%- endif -%}
+
+    {%- if p_type contains 'stencil' or p_tags contains 'stencil' or p_tags contains 'transfer' -%}
+      <a href="/collections/stencil-transfer-paper" class="xuw-pnav__chip">Stencil</a>
+    {%- endif -%}
+
+    {%- if p_type contains 'art' or p_type contains 'drawing' or p_type contains 'marker' or p_vend contains 'tombow' or p_vend contains 'posca' -%}
+      <a href="/collections/uni-posca-paint-markers" class="xuw-pnav__chip">Art &amp; Drawing</a>
+    {%- endif -%}
+
+    {%- if p_type contains 'book' or p_type contains 'sketchbook' or p_tags contains 'book' -%}
+      <a href="/collections/tattoo-sketchbooks-art-books" class="xuw-pnav__chip">Books</a>
+    {%- endif -%}
+
+    <a href="/collections/all" class="xuw-pnav__chip xuw-pnav__chip--all">All Products &#8594;</a>
+
+    {%- comment %} Collection pills — show which collections this product belongs to {% endcomment %}
+    {%- if product.collections.size > 0 -%}
+      {%- assign shown = 0 -%}
+      {%- for c in product.collections limit: 5 -%}
+        {%- unless c.handle == 'frontpage' or c.handle == 'all' or c.handle contains 'wholesale' -%}
+          {%- if shown < 3 -%}
+            <a href="{{ c.url }}" class="xuw-pnav__chip xuw-pnav__chip--col">{{ c.title }}</a>
+            {%- assign shown = shown | plus: 1 -%}
+          {%- endif -%}
+        {%- endunless -%}
+      {%- endfor -%}
+    {%- endif -%}
+
+  </div>
+</nav>
+
+{% stylesheet %}
+  .xuw-pnav {
+    width: 100%;
+    background: var(--color-background, #111);
+    border-bottom: 1px solid rgba(128,128,128,0.15);
+    overflow: hidden;
+  }
+  .xuw-pnav__scroll {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    white-space: nowrap;
+  }
+  .xuw-pnav__scroll::-webkit-scrollbar { display: none; }
+
+  .xuw-pnav__label {
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.09em;
+    opacity: 0.45;
+    flex-shrink: 0;
+  }
+  .xuw-pnav__chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 13px;
+    background: rgba(128,128,128,0.10);
+    border: 1px solid rgba(128,128,128,0.18);
+    border-radius: 20px;
+    font-size: 0.73rem;
+    font-weight: 500;
+    color: inherit;
+    text-decoration: none;
+    white-space: nowrap;
+    flex-shrink: 0;
+    transition: background 0.14s, border-color 0.14s;
+  }
+  .xuw-pnav__chip:hover,
+  .xuw-pnav__chip:focus-visible {
+    background: rgba(192,57,43,0.22);
+    border-color: rgba(192,57,43,0.55);
+    outline: none;
+  }
+  .xuw-pnav__chip--all {
+    font-weight: 700;
+    border-color: rgba(192,57,43,0.35);
+  }
+  .xuw-pnav__chip--col {
+    background: rgba(192,57,43,0.10);
+    border-color: rgba(192,57,43,0.28);
+    font-weight: 600;
+  }
+  .xuw-pnav__chip--col:hover {
+    background: rgba(192,57,43,0.25);
+  }
+{% endstylesheet %}
