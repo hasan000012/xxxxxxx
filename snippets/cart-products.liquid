@@ -276,17 +276,21 @@
                         if item_variant_title_lower == 'wholesale'
                           for v in item.product.variants
                             assign v_title_lower = v.title | downcase
-                            if v_title_lower != 'wholesale' and ws_retail_variant == nil
-                              assign ws_retail_variant = v
+                            if v_title_lower != 'wholesale'
+                              if ws_retail_variant == nil or v.price > ws_retail_variant.price
+                                assign ws_retail_variant = v
+                              endif
                             endif
                           endfor
                         endif
                       -%}
-                      {% if ws_retail_variant != nil and ws_retail_variant.price > item.original_price %}
+                      {% if item_variant_title_lower == 'wholesale' %}
                         <div class="cart-items__ws-price-block">
                           <span class="cart-items__ws-badge">Wholesale</span>
                           <span class="cart-items__ws-price">{{ item.final_price | money }}</span>
-                          <s class="cart-items__ws-retail-price">{{ ws_retail_variant.price | money }}</s>
+                          {% if ws_retail_variant != nil and ws_retail_variant.price > item.original_price %}
+                            <s class="cart-items__ws-retail-price">{{ ws_retail_variant.price | money }}</s>
+                          {% endif %}
                         </div>
                       {% elsif item.original_price != item.final_price %}
                         <span class="visually-hidden">{{ 'content.price_sale' | t }}</span>
@@ -379,8 +383,10 @@
                   if item_vt_lower == 'wholesale'
                     for v in item.product.variants
                       assign vt_lower = v.title | downcase
-                      if vt_lower != 'wholesale' and ws_retail_for_line == nil
-                        assign ws_retail_for_line = v
+                      if vt_lower != 'wholesale'
+                        if ws_retail_for_line == nil or v.price > ws_retail_for_line.price
+                          assign ws_retail_for_line = v
+                        endif
                       endif
                     endfor
                   endif

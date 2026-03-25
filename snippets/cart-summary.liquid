@@ -21,8 +21,10 @@
           assign ws_rv = nil
           for v in item.product.variants
             assign cs_rv_lower = v.title | downcase
-            if cs_rv_lower != 'wholesale' and ws_rv == nil
-              assign ws_rv = v
+            if cs_rv_lower != 'wholesale'
+              if ws_rv == nil or v.price > ws_rv.price
+                assign ws_rv = v
+              endif
             endif
           endfor
           if ws_rv != nil and ws_rv.price > item.original_price
