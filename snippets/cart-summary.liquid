@@ -17,15 +17,15 @@
       assign total_ws_savings = 0
       for item in cart.items
         assign cs_vt_lower = item.variant.title | downcase
-        if cs_vt_lower == 'wholesale'
+        if cs_vt_lower contains 'wholesale'
           assign ws_rv = nil
           for v in item.product.variants
             assign cs_rv_lower = v.title | downcase
-            if cs_rv_lower != 'wholesale'
+            unless cs_rv_lower contains 'wholesale'
               if ws_rv == nil or v.price > ws_rv.price
                 assign ws_rv = v
               endif
-            endif
+            endunless
           endfor
           if ws_rv != nil and ws_rv.price > item.original_price
             assign ws_item_saving = ws_rv.price | minus: item.original_price | times: item.quantity
@@ -328,6 +328,27 @@
   </div>
 </div>
 
+{%- liquid
+  assign xuw_ws_total = 0
+  assign xuw_has_ws = false
+  for xuw_item in cart.items
+    assign xuw_vt = xuw_item.variant.title | downcase
+    if xuw_vt contains 'wholesale'
+      assign xuw_has_ws = true
+      assign xuw_ws_total = xuw_ws_total | plus: xuw_item.final_line_price
+    endif
+  endfor
+-%}
+{%- if xuw_has_ws and xuw_ws_total >= 200000 -%}
+  <div class="xuw-over-limit-notice">
+    <span class="xuw-over-limit-notice__icon">&#9888;</span>
+    <div>
+      <strong>Wholesale order over &euro;2,000</strong>
+      <p>For orders of this size we offer personalised business pricing. <a href="/pages/contact" class="xuw-over-limit-notice__link">Contact us for a custom quote &rarr;</a></p>
+    </div>
+  </div>
+{%- endif -%}
+
 <div class="cart__ctas">
   <button
     type="submit"
@@ -357,6 +378,40 @@
 </div>
 
 {% stylesheet %}
+  /* XUW — wholesale over €2,000 notice */
+  .xuw-over-limit-notice {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 12px 14px;
+    border-radius: 6px;
+    background: #fff3f3;
+    border: 1px solid #e74c3c;
+    color: #c0392b;
+    font-size: var(--font-size--sm);
+    margin-block-end: var(--margin-md);
+  }
+  .xuw-over-limit-notice__icon {
+    font-size: 18px;
+    flex-shrink: 0;
+    line-height: 1.4;
+  }
+  .xuw-over-limit-notice strong {
+    display: block;
+    margin-block-end: 2px;
+  }
+  .xuw-over-limit-notice p {
+    margin: 0;
+  }
+  .xuw-over-limit-notice__link {
+    color: #c0392b;
+    font-weight: 600;
+    text-decoration: underline;
+  }
+  .xuw-over-limit-notice__link:hover {
+    color: #922b21;
+  }
+
   .cart-actions {
     display: flex;
     flex-direction: column;

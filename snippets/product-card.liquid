@@ -69,9 +69,14 @@
   endfor
 
   assign pc_retail_variant = nil
+  assign pc_ws_variant = nil
   for pc_v in product.variants
     assign pc_vt_lower = pc_v.title | downcase
-    if pc_vt_lower != 'wholesale' and pc_retail_variant == nil and pc_v.available
+    if pc_vt_lower contains 'wholesale'
+      if pc_ws_variant == nil
+        assign pc_ws_variant = pc_v
+      endif
+    elsif pc_retail_variant == nil and pc_v.available
       assign pc_retail_variant = pc_v
     endif
   endfor
@@ -142,6 +147,19 @@
   >
     {{ children }}
     {%- if pc_is_wholesale -%}
+      {%- if pc_ws_variant != nil -%}
+        <div class="xuw-card__ws-price-row">
+          <span class="xuw-ws-tag-sm">Wholesale</span>
+          <span class="xuw-ws-price-sm">{{ pc_ws_variant.price | money }}</span>
+          {%- if pc_retail_variant != nil and pc_retail_variant.price > pc_ws_variant.price -%}
+            <s class="xuw-retail-compare-sm">{{ pc_retail_variant.price | money }}</s>
+          {%- endif -%}
+        </div>
+      {%- endif -%}
+      <div id="xuwPrice-{{ product.id }}" hidden aria-hidden="true">
+        <span class="xuw-price--retail"></span>
+        <span class="xuw-price--ws"></span>
+      </div>
       <div class="xuw-card__mode-toggle" role="group" aria-label="Select pricing">
         <button class="xuw-card__mode-btn is-active" data-mode="retail"
           data-action="card-mode" data-product-id="{{ product.id }}"
@@ -171,5 +189,37 @@
     .product-card slideshow-arrows .slideshow-control {
       display: none;
     }
+  }
+
+  /* XUW wholesale price row — always visible on product card */
+  .xuw-card__ws-price-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 8px;
+    border-radius: 5px;
+    background: rgba(39, 174, 96, 0.08);
+    border: 1px solid rgba(39, 174, 96, 0.25);
+    font-size: var(--font-size--sm);
+  }
+  .xuw-ws-tag-sm {
+    font-size: 10px;
+    font-weight: 700;
+    color: #fff;
+    background: #27ae60;
+    border-radius: 3px;
+    padding: 1px 5px;
+    text-transform: uppercase;
+    flex-shrink: 0;
+    letter-spacing: 0.04em;
+  }
+  .xuw-ws-price-sm {
+    font-weight: 700;
+    color: #27ae60;
+  }
+  .xuw-retail-compare-sm {
+    font-size: var(--font-size--xs);
+    color: rgb(var(--color-foreground-rgb) / 0.5);
+    text-decoration: line-through;
   }
 {% endstylesheet %}
