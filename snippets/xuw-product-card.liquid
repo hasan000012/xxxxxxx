@@ -1,11 +1,12 @@
 {% comment %}
-  X UNDER WORLD — Product Card  |  snippets/xuw-product-card.liquid  |  v9
-  V9: removed all | t translation calls, clean defaults only.
+  XUW Product Card — snippets/xuw-product-card.liquid — v10
+  V10: V3 spec — dual price zones in DOM (Rule 11), sliding WS toggle,
+  stock dot, single quick-buy CTA. Both .xuw-price-retail and
+  .xuw-price-wholesale always exist in DOM. JS toggles .xuw-is-hidden.
 {% endcomment %}
 
 {%- liquid
   assign first_variant  = product.selected_or_first_available_variant
-  assign product_url    = product.url
   assign sold_out       = false
   unless product.available
     assign sold_out = true
@@ -22,7 +23,7 @@
     endif
   endfor
   assign retail_variant = nil
-  assign ws_variant = nil
+  assign ws_variant     = nil
   for v in product.variants
     assign v_t = v.title | downcase
     if v_t contains 'wholesale'
@@ -42,8 +43,7 @@
   assign tags_string = product.tags | join: ',' | downcase
 -%}
 
-<div
-  class="xuw-card{% if sold_out %} xuw-card--soldout{% endif %}"
+<div class="xuw-card{% if sold_out %} xuw-card--soldout{% endif %}"
   data-product-id="{{ product.id }}"
   data-handle="{{ product.handle }}"
   data-wholesale="{{ is_wholesale }}"
@@ -53,123 +53,119 @@
   data-product-type="{{ product.type | downcase | escape }}"
   data-vendor="{{ product.vendor | downcase | escape }}"
   data-available="{{ product.available }}"
-  data-price="{{ retail_variant.price }}"
->
+  data-price="{{ retail_variant.price }}">
 
-  {%- if sold_out -%}
-    <div class="xuw-card__badge xuw-badge--soldout">Sold Out</div>
-  {%- elsif product.tags contains 'new' or product.tags contains 'NEW' -%}
-    <div class="xuw-card__badge xuw-badge--new">New</div>
-  {%- elsif product.tags contains 'hot' -%}
-    <div class="xuw-card__badge xuw-badge--hot">Hot</div>
-  {%- elsif product.tags contains 'sale' -%}
-    <div class="xuw-card__badge xuw-badge--sale">Sale</div>
-  {%- elsif is_wholesale -%}
-    <div class="xuw-card__badge xuw-badge--ws">WS</div>
-  {%- endif -%}
-
-  <a href="{{ product_url }}" class="xuw-card__img-wrap" tabindex="-1" aria-hidden="true">
-    {%- if product.featured_media -%}
-      <img class="xuw-card__img"
-        src="{{ product.featured_media | image_url: width: 500 }}"
-        alt="{{ img_alt }}" width="500" height="500" loading="lazy">
-      {%- if product.media.size > 1 -%}
-        <img class="xuw-card__img xuw-card__img--hover"
-          src="{{ product.media[1] | image_url: width: 500 }}"
-          alt="{{ product.media[1].alt | default: product.title | escape }}"
-          width="500" height="500" loading="lazy">
+  <div class="xuw-card__img-wrap">
+    <a href="{{ product.url }}">
+      {%- if product.featured_media -%}
+        <img class="xuw-card__img"
+          src="{{ product.featured_media | image_url: width: 400 }}"
+          alt="{{ img_alt }}"
+          width="400" height="400"
+          loading="lazy">
+      {%- else -%}
+        <div class="xuw-card__img-placeholder" aria-hidden="true">
+          <span>{{ product.title | slice: 0, 2 | upcase }}</span>
+        </div>
       {%- endif -%}
-    {%- else -%}
-      <div class="xuw-card__img-placeholder" aria-hidden="true">
-        <span>{{ product.title | slice: 0, 2 | upcase }}</span>
-      </div>
+    </a>
+
+    {%- if product.tags contains 'new' or product.tags contains 'NEW' -%}
+      <span class="xuw-badge xuw-badge--new">NEW</span>
+    {%- elsif product.tags contains 'hot' -%}
+      <span class="xuw-badge xuw-badge--hot">HOT</span>
+    {%- elsif product.tags contains 'sale' -%}
+      <span class="xuw-badge xuw-badge--sale">SALE</span>
     {%- endif -%}
-    <div class="xuw-card__img-overlay" aria-hidden="true"><span>Quick Buy</span></div>
-  </a>
+    {%- if product.tags contains 'eco' -%}
+      <span class="xuw-badge xuw-badge--eco">ECO</span>
+    {%- endif -%}
+    {%- if is_wholesale -%}
+      <span class="xuw-badge xuw-badge--ws">WS</span>
+    {%- endif -%}
+
+    <span class="xuw-card__stock-dot{% unless product.available %} is-oos{% endunless %}"></span>
+  </div>
 
   <div class="xuw-card__body">
 
     {%- if show_vendor and product.vendor != blank -%}
-      <p class="xuw-card__vendor">{{ product.vendor }}</p>
+      <p class="xuw-card__vendor">
+        <a href="/collections/all?vendor={{ product.vendor | url_encode }}">{{ product.vendor }}</a>
+      </p>
     {%- endif -%}
 
-    <h3 class="xuw-card__name"><a href="{{ product_url }}">{{ product.title }}</a></h3>
+    <p class="xuw-card__name">
+      <a href="{{ product.url }}">{{ product.title }}</a>
+    </p>
 
-    <div class="xuw-card__price"
-      id="xuwPrice-{{ product.id }}"
-      data-retail-price="{{ retail_variant.price }}"
-      data-compare-price="{{ retail_variant.compare_at_price | default: 0 }}">
-      {%- if retail_variant.compare_at_price > retail_variant.price -%}
-        <span class="xuw-price--compare">{{ retail_variant.compare_at_price | money }}</span>
-      {%- endif -%}
-      <span class="xuw-price--retail">
-        {%- if product.price_varies -%}From {{ product.price_min | money }}
-        {%- else -%}{{ retail_variant.price | money }}
+    <div class="xuw-card__price-zone" aria-live="polite">
+
+      <div class="xuw-price-retail">
+        {%- if retail_variant.compare_at_price > retail_variant.price -%}
+          <span class="xuw-price__compare">{{ retail_variant.compare_at_price | money }}</span>
         {%- endif -%}
-      </span>
-      <span class="xuw-price--ws" style="display:none"></span>
-    </div>
-    {%- if is_wholesale -%}
-      <div class="xuw-card__dual-price">
-        <div class="xuw-card__price-row xuw-card__price-row--retail">
-          <span class="xuw-card__price-label">Retail</span>
-          <span class="xuw-card__price-val">{{ retail_variant.price | money }}</span>
-        </div>
-        <div class="xuw-card__price-row xuw-card__price-row--ws">
-          <span class="xuw-card__price-label xuw-card__price-label--ws">Wholesale</span>
-          {%- if ws_variant != nil -%}
-            <span class="xuw-card__price-val xuw-card__price-val--ws">{{ ws_variant.price | money }}</span>
-            {%- if retail_variant.price > ws_variant.price -%}
-              <span class="xuw-card__price-save">Save {{ retail_variant.price | minus: ws_variant.price | money }}</span>
-            {%- endif -%}
-          {%- else -%}
-            <span class="xuw-card__price-val xuw-card__price-val--ws" style="font-size:11px;font-style:italic">Up to 20% off</span>
+        <span class="xuw-price__current">
+          {%- if product.price_varies -%}From {{ product.price_min | money }}
+          {%- else -%}{{ retail_variant.price | money }}
           {%- endif -%}
-        </div>
+        </span>
       </div>
-    {%- endif -%}
+
+      {%- if is_wholesale -%}
+      <div class="xuw-price-wholesale xuw-is-hidden">
+        <span class="xuw-price__retail-crossed">{{ retail_variant.price | money }}</span>
+        <div class="xuw-price__ws-row">
+          <span class="xuw-price__ws-amount">—</span>
+          <span class="xuw-pill xuw-pill--gold">WS</span>
+        </div>
+        <p class="xuw-price__moq-note">
+          Typical order: <strong class="xuw-moq-qty">{{ moq }}</strong>+ units
+        </p>
+      </div>
+      {%- endif -%}
+
+    </div>
 
     {%- if is_wholesale -%}
-      <div class="xuw-card__mode-toggle" role="group" aria-label="Select pricing">
-        <button class="xuw-card__mode-btn is-active" data-mode="retail"
-          data-action="card-mode" data-product-id="{{ product.id }}"
-          aria-pressed="true" type="button">Retail</button>
-        <button class="xuw-card__mode-btn" data-mode="wholesale"
-          data-action="card-mode" data-product-id="{{ product.id }}"
-          aria-pressed="false" type="button">Wholesale</button>
-      </div>
-      {%- if moq > 1 -%}
-        <p class="xuw-card__moq-badge" id="xuwMoqHint-{{ product.id }}" style="display:none">
-          Typical order: {{ moq }}+ units
-        </p>
-      {%- endif -%}
+    <div class="xuw-card__ws-toggle-row">
+      <button
+        class="xuw-ws-toggle"
+        data-action="card-mode"
+        data-handle="{{ product.handle }}"
+        aria-pressed="false"
+        aria-label="Toggle wholesale pricing"
+        type="button">
+        <span class="xuw-ws-toggle__track">
+          <span class="xuw-ws-toggle__pill"></span>
+        </span>
+        <span class="xuw-ws-toggle__label">Wholesale</span>
+      </button>
+    </div>
     {%- endif -%}
 
     {%- assign visible_variants = 0 -%}
     {%- for v in product.variants -%}
-      {%- if v.title != 'Wholesale' -%}{%- assign visible_variants = visible_variants | plus: 1 -%}{%- endif -%}
+      {%- assign v_lower = v.title | downcase -%}
+      {%- unless v_lower contains 'wholesale' -%}
+        {%- assign visible_variants = visible_variants | plus: 1 -%}
+      {%- endunless -%}
     {%- endfor -%}
     {%- if visible_variants > 1 -%}
       <p class="xuw-card__variants-hint">{{ visible_variants }} options</p>
     {%- endif -%}
 
-  </div>
-
-  <div class="xuw-card__footer">
     {%- if sold_out -%}
-      <button class="xuw-btn xuw-btn--soldout" disabled aria-disabled="true" type="button">Sold Out</button>
+      <button class="xuw-btn xuw-btn--primary xuw-btn--full"
+        disabled aria-disabled="true" type="button">Out of Stock</button>
     {%- else -%}
-      <button class="xuw-btn xuw-btn--buy"
-        data-action="quick-buy" data-handle="{{ product.handle }}"
-        aria-label="Quick buy {{ product.title | escape }}"
-        type="button">Quick Buy</button>
-      <button class="xuw-btn xuw-btn--atc"
-        data-action="direct-atc"
-        data-variant-id="{{ retail_variant.id }}"
+      <button
+        class="xuw-btn xuw-btn--primary xuw-btn--full"
+        data-action="quick-buy"
         data-handle="{{ product.handle }}"
-        aria-label="Add {{ product.title | escape }} to cart"
-        type="button">+ Cart</button>
+        aria-label="Quick buy {{ product.title | escape }}"
+        type="button">+ Add to Cart</button>
     {%- endif -%}
-  </div>
 
+  </div>
 </div>

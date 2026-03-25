@@ -176,6 +176,103 @@
 </div>
 {%- endif -%}
 
+{%- comment %} ══ HOMEPAGE SECTIONS ══ {% endcomment %}
+{%- if is_homepage -%}
+
+{%- comment %} Section 2: Quick-Category Strip {% endcomment %}
+<section class="xuw-section--hp" aria-label="Shop by category">
+  <h2 class="xuw-section__heading">{{ section.settings.cat_strip_heading | default: 'Shop by Category' }}</h2>
+  <div class="xuw-cat-strip">
+    <a class="xuw-cat-tile" href="/collections/magic-moon-needles">
+      <span class="xuw-cat-tile__icon" aria-hidden="true">&#x1F489;</span>
+      <span class="xuw-cat-tile__label">Needles</span>
+    </a>
+    <a class="xuw-cat-tile" href="/collections/cartridges">
+      <span class="xuw-cat-tile__icon" aria-hidden="true">&#x1F4E6;</span>
+      <span class="xuw-cat-tile__label">Cartridges</span>
+    </a>
+    <a class="xuw-cat-tile" href="/collections/tattoo-inks">
+      <span class="xuw-cat-tile__icon" aria-hidden="true">&#x1F3A8;</span>
+      <span class="xuw-cat-tile__label">Inks</span>
+    </a>
+    <a class="xuw-cat-tile" href="/collections/tattoo-machines">
+      <span class="xuw-cat-tile__icon" aria-hidden="true">&#x26A1;</span>
+      <span class="xuw-cat-tile__label">Machines</span>
+    </a>
+    <a class="xuw-cat-tile" href="/collections/aftercare">
+      <span class="xuw-cat-tile__icon" aria-hidden="true">&#x1FA79;</span>
+      <span class="xuw-cat-tile__label">Care &amp; Aftercare</span>
+    </a>
+    <a class="xuw-cat-tile" href="/collections/accessories">
+      <span class="xuw-cat-tile__icon" aria-hidden="true">&#x1F6E1;</span>
+      <span class="xuw-cat-tile__label">Accessories</span>
+    </a>
+  </div>
+</section>
+
+{%- comment %} Section 3: Featured Collection Grid {% endcomment %}
+{%- assign featured_col = section.settings.featured_collection -%}
+{%- if featured_col != blank -%}
+<section class="xuw-section--hp" aria-label="Featured products">
+  <h2 class="xuw-section__heading">{{ section.settings.featured_heading | default: 'Featured Products' }}</h2>
+  <div class="xuw-grid">
+    {%- for product in featured_col.products limit: 8 -%}
+      {%- render 'xuw-product-card', product: product, show_vendor: show_vendor -%}
+    {%- else -%}
+      <p style="color:var(--xuw-muted)">No featured products yet.</p>
+    {%- endfor -%}
+  </div>
+  <div style="text-align:center;margin-top:24px">
+    <a href="{{ featured_col.url }}" class="xuw-btn xuw-btn--outline" style="display:inline-block;width:auto">View All &#8594;</a>
+  </div>
+</section>
+{%- endif -%}
+
+{%- comment %} Section 4: Brand Grid {% endcomment %}
+{%- assign brand_blocks = section.blocks | where: 'type', 'brand' -%}
+{%- if brand_blocks.size > 0 -%}
+<section class="xuw-section--hp" aria-label="Our brands">
+  <h2 class="xuw-section__heading">{{ section.settings.brands_heading | default: 'Our Brands' }}</h2>
+  <div class="xuw-brand-grid">
+    {%- for block in brand_blocks -%}
+      {%- if block.settings.brand_url != blank -%}
+        <a class="xuw-brand-logo" href="{{ block.settings.brand_url }}" {{ block.shopify_attributes }}>
+      {%- else -%}
+        <div class="xuw-brand-logo" {{ block.shopify_attributes }}>
+      {%- endif -%}
+      {%- if block.settings.brand_logo != blank -%}
+        <img src="{{ block.settings.brand_logo | image_url: width: 200 }}" alt="{{ block.settings.brand_name | default: 'Brand' | escape }}" width="200" loading="lazy">
+      {%- else -%}
+        <span class="xuw-brand-logo__text">{{ block.settings.brand_name | default: 'Brand' }}</span>
+      {%- endif -%}
+      {%- if block.settings.brand_url != blank -%}</a>{%- else -%}</div>{%- endif -%}
+    {%- endfor -%}
+  </div>
+</section>
+{%- endif -%}
+
+{%- comment %} Section 5: Needle-Type Strip {% endcomment %}
+<section class="xuw-section--hp" aria-label="Shop by needle type">
+  <h2 class="xuw-section__heading">{{ section.settings.needle_strip_heading | default: 'Shop by Needle Type' }}</h2>
+  <div class="xuw-grid xuw-grid--5col">
+    {%- assign needle_collections = 'magnum-needles,round-liner-needles,soft-edge-magnum-needles,round-shader-needles,specialty-needles' | split: ',' -%}
+    {%- for nc_handle in needle_collections -%}
+      {%- assign nc = collections[nc_handle] -%}
+      {%- if nc != blank -%}
+        <a class="xuw-cat-tile xuw-cat-tile--needle" href="{{ nc.url }}">
+          {%- if nc.image -%}
+            <img class="xuw-cat-tile__img" src="{{ nc.image | image_url: width: 300 }}" alt="{{ nc.title | escape }}" width="300" loading="lazy">
+          {%- endif -%}
+          <span class="xuw-cat-tile__label">{{ nc.title }}</span>
+          <span class="xuw-cat-tile__count">{{ nc.products_count }} products</span>
+        </a>
+      {%- endif -%}
+    {%- endfor -%}
+  </div>
+</section>
+
+{%- else -%}
+
 {%- comment %} ══ SHOP WRAPPER ══ {% endcomment %}
 <div class="xuw-shop-wrapper">
 
@@ -677,44 +774,31 @@
       {%- endif -%}
     </div>
 
-    {%- if is_homepage -%}
+    {%- paginate col.products by products_per_page -%}
       <div class="xuw-product-grid" id="xuwGrid" data-total="{{ col.products_count }}">
-        {%- for product in col.products limit: products_per_page -%}
+        {%- for product in col.products -%}
           {%- render 'xuw-product-card', product: product, show_vendor: show_vendor -%}
         {%- else -%}
-          <div class="xuw-empty"><div class="xuw-empty__icon" aria-hidden="true">&#128269;</div><p>No products found.</p><a href="{{ routes.all_products_collection_url }}" class="xuw-btn xuw-btn--outline" style="display:inline-block;width:auto;margin-top:16px">Browse All</a></div>
+          <div class="xuw-empty"><div class="xuw-empty__icon" aria-hidden="true">&#128269;</div><p>No products found.</p></div>
         {%- endfor -%}
       </div>
-      {%- if col.products_count > products_per_page -%}
-        <div class="xuw-view-all-wrap">
-          <a href="{{ col.url }}" class="xuw-btn xuw-btn--outline xuw-btn--view-all">View All {{ col.products_count }} Products &#8594;</a>
-        </div>
-      {%- endif -%}
-    {%- else -%}
-      {%- paginate col.products by products_per_page -%}
-        <div class="xuw-product-grid" id="xuwGrid" data-total="{{ col.products_count }}">
-          {%- for product in col.products -%}
-            {%- render 'xuw-product-card', product: product, show_vendor: show_vendor -%}
-          {%- else -%}
-            <div class="xuw-empty"><div class="xuw-empty__icon" aria-hidden="true">&#128269;</div><p>No products found.</p></div>
+      {%- if paginate.pages > 1 -%}
+        <nav class="xuw-pagination" aria-label="Product pages">
+          {%- if paginate.previous -%}<a class="xuw-pg-btn" href="{{ paginate.previous.url }}" aria-label="Previous">&#8592;</a>{%- endif -%}
+          {%- for part in paginate.parts -%}
+            {%- if part.is_link -%}<a class="xuw-pg-btn" href="{{ part.url }}">{{ part.title }}</a>
+            {%- elsif part.title == paginate.current_page -%}<span class="xuw-pg-btn is-active" aria-current="page">{{ part.title }}</span>
+            {%- else -%}<span class="xuw-pg-btn xuw-pg-dots">{{ part.title }}</span>
+            {%- endif -%}
           {%- endfor -%}
-        </div>
-        {%- if paginate.pages > 1 -%}
-          <nav class="xuw-pagination" aria-label="Product pages">
-            {%- if paginate.previous -%}<a class="xuw-pg-btn" href="{{ paginate.previous.url }}" aria-label="Previous">&#8592;</a>{%- endif -%}
-            {%- for part in paginate.parts -%}
-              {%- if part.is_link -%}<a class="xuw-pg-btn" href="{{ part.url }}">{{ part.title }}</a>
-              {%- elsif part.title == paginate.current_page -%}<span class="xuw-pg-btn is-active" aria-current="page">{{ part.title }}</span>
-              {%- else -%}<span class="xuw-pg-btn xuw-pg-dots">{{ part.title }}</span>
-              {%- endif -%}
-            {%- endfor -%}
-            {%- if paginate.next -%}<a class="xuw-pg-btn" href="{{ paginate.next.url }}" aria-label="Next">&#8594;</a>{%- endif -%}
-          </nav>
-        {%- endif -%}
-      {%- endpaginate -%}
-    {%- endif -%}
+          {%- if paginate.next -%}<a class="xuw-pg-btn" href="{{ paginate.next.url }}" aria-label="Next">&#8594;</a>{%- endif -%}
+        </nav>
+      {%- endif -%}
+    {%- endpaginate -%}
   </main>
 </div>
+
+{%- endif -%}
 
 {%- comment %} Modal, toast, CSS and JS are now loaded globally via snippets/xuw-global.liquid in layout/theme.liquid {% endcomment %}
 
@@ -772,7 +856,25 @@
     { "type": "color", "id": "color_crimson","label": "Primary",    "default": "#8b4444" },
     { "type": "color", "id": "color_gold",   "label": "Accent",     "default": "#ffcc00" },
     { "type": "color", "id": "color_bg",     "label": "Background", "default": "#000000" },
-    { "type": "color", "id": "color_text",   "label": "Text",       "default": "#ffffff" }
+    { "type": "color", "id": "color_text",   "label": "Text",       "default": "#ffffff" },
+    { "type": "header",     "content": "Homepage Sections" },
+    { "type": "text",       "id": "cat_strip_heading",    "label": "Category strip heading",   "default": "Shop by Category" },
+    { "type": "text",       "id": "featured_heading",     "label": "Featured section heading", "default": "Featured Products" },
+    { "type": "collection", "id": "featured_collection",  "label": "Featured collection" },
+    { "type": "text",       "id": "brands_heading",       "label": "Brands section heading",   "default": "Our Brands" },
+    { "type": "text",       "id": "needle_strip_heading", "label": "Needle strip heading",     "default": "Shop by Needle Type" }
+  ],
+  "blocks": [
+    {
+      "type": "brand",
+      "name": "Brand Logo",
+      "limit": 12,
+      "settings": [
+        { "type": "text",         "id": "brand_name", "label": "Brand name" },
+        { "type": "image_picker", "id": "brand_logo", "label": "Brand logo" },
+        { "type": "url",          "id": "brand_url",  "label": "Collection URL" }
+      ]
+    }
   ],
   "presets": [{ "name": "XUW Collection", "category": "Products" }]
 }

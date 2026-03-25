@@ -599,24 +599,67 @@
     }
   }
 
-  /* Card wholesale toggle */
+  /* Card wholesale toggle — V3 Block 5 Step 2
+   * Reads: btn.aria-pressed (current state), data-handle, closest .xuw-card
+   * Outputs: toggles .xuw-is-hidden on price zones, fetches WS price from /products/handle.js
+   * Risk: fetch may fail — revert toggle. Cache fetched price via data-fetched attr.
+   */
   function _cardSetMode(btn) {
-    var mode = btn.getAttribute('data-mode');
-    /* Support both old (.xuw-card__mode-btn) and new (.xuw-panel__mode-btn) card layouts */
-    var card = btn.closest('.xuw-card') || btn.closest('product-card');
-    if (!card || !mode) return;
-    card.querySelectorAll('.xuw-card__mode-btn, .xuw-panel__mode-btn').forEach(function (b) {
-      var on = b.getAttribute('data-mode') === mode;
-      b.classList.toggle('is-active', on);
-      b.classList.toggle('xuw-panel__mode-btn--active', on);
-      b.setAttribute('aria-pressed', on.toString());
-    });
-    card.dataset.currentMode = mode;
+    var cardEl  = btn.closest('.xuw-card');
+    var handle  = btn.getAttribute('data-handle') || (cardEl && cardEl.getAttribute('data-handle'));
+    if (!cardEl || !handle) return;
 
-    if (mode === 'wholesale') {
-      /* Open modal in wholesale mode so customer can add wholesale variant to cart */
-      _openModal(card.getAttribute('data-handle'), null, card, 'wholesale');
+    var isActive = btn.getAttribute('aria-pressed') === 'true';
+    var newMode  = isActive ? 'retail' : 'wholesale';
+
+    cardEl.dataset.currentMode = newMode;
+    btn.classList.toggle('is-active', newMode === 'wholesale');
+    btn.setAttribute('aria-pressed', (newMode === 'wholesale').toString());
+
+    var wsBadge   = cardEl.querySelector('.xuw-badge--ws');
+    var retailZone = cardEl.querySelector('.xuw-price-retail');
+    var wsZone    = cardEl.querySelector('.xuw-price-wholesale');
+
+    if (newMode === 'retail') {
+      if (retailZone) retailZone.classList.remove('xuw-is-hidden');
+      if (wsZone)     wsZone.classList.add('xuw-is-hidden');
+      if (wsBadge)    wsBadge.classList.remove('is-active');
+      return;
     }
+
+    /* Wholesale — use cached price if already fetched */
+    var wsAmountEl = wsZone && wsZone.querySelector('.xuw-price__ws-amount');
+    if (wsAmountEl && wsAmountEl.getAttribute('data-fetched') === 'true') {
+      if (retailZone) retailZone.classList.add('xuw-is-hidden');
+      if (wsZone)     wsZone.classList.remove('xuw-is-hidden');
+      if (wsBadge)    wsBadge.classList.add('is-active');
+      return;
+    }
+
+    fetch('/products/' + encodeURIComponent(handle) + '.js')
+      .then(function (r) { return r.json(); })
+      .then(function (product) {
+        var wsV = null;
+        for (var i = 0; i < product.variants.length; i++) {
+          if (product.variants[i].title.toLowerCase() === CFG.WS_VARIANT_TITLE) {
+            wsV = product.variants[i]; break;
+          }
+        }
+        if (!wsV) return;
+        if (wsAmountEl) {
+          wsAmountEl.textContent = _money(wsV.price);
+          wsAmountEl.setAttribute('data-fetched', 'true');
+        }
+        if (retailZone) retailZone.classList.add('xuw-is-hidden');
+        if (wsZone)     wsZone.classList.remove('xuw-is-hidden');
+        if (wsBadge)    wsBadge.classList.add('is-active');
+      })
+      .catch(function () {
+        /* Revert toggle on error */
+        cardEl.dataset.currentMode = 'retail';
+        btn.classList.remove('is-active');
+        btn.setAttribute('aria-pressed', 'false');
+      });
   }
 
   /* Sidebar wholesale mode toggle */
