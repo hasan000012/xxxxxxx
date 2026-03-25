@@ -439,6 +439,8 @@
 .xuw-ws-tier-table td { padding:5px 6px; color:#888; transition:color .2s; }
 .xuw-ws-tier-table tr.xuw-tier--active td { color:var(--xuw-white); background:rgba(46,125,50,.1); }
 .xuw-ws-tier-table tr.xuw-tier--active .xuw-tier__status { color:var(--xuw-green-lt,#66bb6a); font-weight:700; }
+.xuw-ws-tier-table tr.xuw-tier--next td  { color:#ccc; background:rgba(192,57,43,.07); }
+.xuw-ws-tier-table tr.xuw-tier--next .xuw-tier__status { color:var(--xuw-crimson,#c0392b); font-weight:600; }
 .xuw-tier__status   { font-size:10px; color:transparent; }
 .xuw-ws-live-note   { font-size:11px; margin-top:8px; line-height:1.5; }
 .xuw-modal__cart-total-note { font-size:11px; margin-top:6px; }
@@ -446,6 +448,10 @@
 
 /* ══ V9: MOQ badge on card ══ */
 .xuw-card__moq-badge { display:inline-block; background:rgba(46,125,50,.15); border:1px solid rgba(102,187,106,.35); color:var(--xuw-green-lt,#66bb6a); font-size:9px; font-weight:700; letter-spacing:1px; text-transform:uppercase; padding:2px 8px; margin-top:5px; }
+
+/* ══ Contact button (out-of-stock fallback in modal) ══ */
+.xuw-btn--contact { display:inline-flex; align-items:center; justify-content:center; width:100%; padding:11px 18px; margin-top:8px; background:transparent; border:1.5px solid var(--xuw-crimson,#c0392b); color:var(--xuw-crimson,#c0392b); font-size:13px; font-weight:600; letter-spacing:.04em; text-decoration:none; border-radius:4px; transition:background .18s,color .18s; }
+.xuw-btn--contact:hover { background:var(--xuw-crimson,#c0392b); color:var(--xuw-white,#fff); }
 
 /* ══ XUW elements inside standard Horizon product cards ══ */
 product-card.xuw-card .xuw-card__mode-toggle,

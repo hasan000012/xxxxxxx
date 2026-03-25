@@ -365,6 +365,8 @@
     if (D.modalImgPh)    D.modalImgPh.style.display = 'flex';
     if (D.modalWsBadge)  D.modalWsBadge.style.display = 'none';
     if (D.cartNote)      D.cartNote.style.display = 'none';
+    var prevContact = document.getElementById('xuwContactBtn');
+    if (prevContact) prevContact.parentNode.removeChild(prevContact);
   }
 
   function _renderModal(product) {
@@ -505,16 +507,24 @@
 
     /* Update tier table highlights */
     if (D.wsTiers) {
+      /* Find the lowest tier the customer hasn't reached yet — that's "Next" */
+      var nextTierMin = null;
+      for (var ti = 0; ti < CFG.WS_TIERS.length; ti++) {
+        if (result.totalEur < CFG.WS_TIERS[ti].min) {
+          if (nextTierMin === null || CFG.WS_TIERS[ti].min < nextTierMin) {
+            nextTierMin = CFG.WS_TIERS[ti].min;
+          }
+        }
+      }
       var rows = D.wsTiers.querySelectorAll('tr[data-tier-min]');
       rows.forEach(function (row) {
         var min = parseInt(row.getAttribute('data-tier-min'), 10);
-        var pct = parseInt(row.getAttribute('data-tier-pct'), 10);
         var statusCell = row.querySelector('.xuw-tier__status');
         var isActive = result.totalEur >= min;
-        var isNext   = !isActive && result.pct < pct;
+        var isNext   = !isActive && min === nextTierMin;
         row.classList.toggle('xuw-tier--active', isActive);
-        row.classList.toggle('xuw-tier--next',   isNext && result.pct === 0 && min === 300);
-        if (statusCell) statusCell.textContent = isActive ? '\u2714 Active' : '';
+        row.classList.toggle('xuw-tier--next',   isNext);
+        if (statusCell) statusCell.textContent = isActive ? '\u2714 Active' : (isNext ? '\u2192 Next' : '');
       });
     }
 
@@ -657,9 +667,8 @@
   }
 
   function _resolveVid() {
-    if (state.modalMode === 'wholesale' && state.wsVariantId) {
-      return state.wsVariantId;
-    }
+    /* Rule 9: wholesale variant is NEVER added to cart.
+       Always return the customer's selected size variant. */
     return state.retailVariantId;
   }
 
@@ -699,8 +708,38 @@
         if (openCart) { document.dispatchEvent(new CustomEvent('theme:cart:open', { bubbles: true })); setTimeout(function () { var b = document.querySelector('[data-cart-toggle],[data-open-cart],.js-cart-open,.header__cart-btn'); if (b) b.click(); }, 60); }
         else { var b = document.querySelector('[data-cart-toggle],.js-cart-open,.header__cart-btn'); if (b) { b.style.transition='transform .15s'; b.style.transform='scale(1.22)'; setTimeout(function(){b.style.transform='';},280); } }
       })
-      .catch(function (err) { _toast(err.message || 'Error adding to cart'); })
+      .catch(function (err) {
+        _toast(err.message || 'Error adding to cart');
+        if (state.product) {
+          var vTitle = '';
+          if (state.retailVariantId && state.product.variants) {
+            for (var vi = 0; vi < state.product.variants.length; vi++) {
+              if (state.product.variants[vi].id === state.retailVariantId) { vTitle = state.product.variants[vi].title; break; }
+            }
+          }
+          _injectCartContactBtn(state.product.handle, qty, vTitle);
+        }
+      })
       .finally(function () { [D.addToCart, D.buyNow].forEach(function (b) { if (b) { b.disabled = false; b.style.opacity = ''; } }); });
+  }
+
+  function _injectCartContactBtn(handle, qty, variantTitle) {
+    var actionsEl = document.getElementById('xuwModalActions') ||
+                    (D.addToCart && D.addToCart.parentNode);
+    if (!actionsEl) return;
+    var prev = document.getElementById('xuwContactBtn');
+    if (prev) return; /* already injected */
+    var params = 'ref=stock&product=' + encodeURIComponent(handle || '') +
+                 '&variant=' + encodeURIComponent(variantTitle || '') +
+                 '&qty=' + encodeURIComponent(qty || 1);
+    var btn = document.createElement('a');
+    btn.id        = 'xuwContactBtn';
+    btn.className = 'xuw-btn xuw-btn--contact';
+    btn.href      = '/pages/contact?' + params;
+    btn.textContent = 'Contact Us to Order';
+    btn.setAttribute('target', '_blank');
+    btn.setAttribute('rel', 'noopener');
+    actionsEl.appendChild(btn);
   }
 
   function _refreshCartCount() {

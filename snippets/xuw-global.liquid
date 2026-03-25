@@ -98,6 +98,7 @@
   Rendered on product pages only. No Horizon base files touched (Rule 1).
 {% endcomment %}
 {%- if request.page_type == 'product' -%}
+  {%- render 'xuw-product-schema', product: product -%}
   {%- render 'xuw-product-nav', product: product -%}
   <script>
     (function () {
