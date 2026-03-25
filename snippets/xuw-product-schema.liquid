@@ -7,7 +7,9 @@
 
 {%- liquid
   assign current_variant = product.selected_or_first_available_variant
-  assign product_url = shop.url | append: product.url
+  assign product_url     = shop.url | append: product.url
+  assign type_handle     = product.type | handleize | default: 'all'
+  assign category_url    = shop.url | append: '/collections/' | append: type_handle
 -%}
 
 <script type="application/ld+json">
@@ -59,7 +61,7 @@
       "@type": "ListItem",
       "position": 2,
       "name": {{ product.type | default: 'Products' | json }},
-      "item": {{ shop.url | append: '/collections/' | append: product.type | handleize | json }}
+      "item": {{ category_url | json }}
     },
     {
       "@type": "ListItem",
