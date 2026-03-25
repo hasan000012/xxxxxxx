@@ -93,3 +93,20 @@
 
 <div class="xuw-toast" id="xuwToast" role="status" aria-live="polite" aria-atomic="true"></div>
 <script src="{{ 'xuw-collection.js' | asset_url }}" defer></script>
+
+{%- comment %} ══ PRODUCT PAGE CATEGORY NAV ══
+  Rendered on product pages only. No Horizon base files touched (Rule 1).
+{% endcomment %}
+{%- if request.page_type == 'product' -%}
+  {%- render 'xuw-product-nav', product: product -%}
+  <script>
+    (function () {
+      var nav = document.querySelector('.xuw-pnav');
+      if (!nav) return;
+      var target = document.querySelector('.product-information') ||
+                   document.querySelector('main') ||
+                   document.body;
+      target.insertBefore(nav, target.firstChild);
+    }());
+  </script>
+{%- endif -%}
