@@ -1,12 +1,9 @@
 {%- doc -%}
-  This snippet is used to render a product card.
-  It is used in the product block, featured product block, and the product card block.
-  The product object is null or when placeholders are rendered.
-
+  Product card — Horizon standard + XUW wholesale integration.
   @param {object} product - The product object
-  @param {object} children - The children of the product card
+  @param {object} children - Children blocks
   @param {object} [block] - The block object
-  @param {number} [product_card_gap] - The gap between the product card children (overrides block settings)
+  @param {number} [product_card_gap] - Gap override
 {%- enddoc -%}
 
 {% assign block_settings = block.settings %}
@@ -20,7 +17,7 @@
   {% endif %}
 {% endstyle %}
 
-{% liquid
+{%- liquid
   assign has_quick_add = false
   if settings.quick_add and product.available
     assign has_quick_add = true
@@ -34,8 +31,6 @@
   assign product_card_id = 'product-card-link-' | append: block.id | append: '-' | append: product.id
   assign product_card_gap_value = product_card_gap | default: block_settings.product_card_gap
   assign product_view_context = product_view_context | default: 'collection'
-
-  # Logic to determine which variant URL to use (matching swatch selection logic)
   assign variant_to_link = product.selected_or_first_available_variant
 
   if settings.transition_to_main_product
@@ -43,7 +38,6 @@
     if featured_image == blank
       assign featured_image = product.featured_media.preview_image
     endif
-
     if featured_image != blank
       assign featured_media_url = featured_image | image_url: width: 500
     endif
@@ -54,49 +48,46 @@
     assign onboarding = true
   endif
 
-  # XUW wholesale detection
-  assign pc_is_wholesale = false
-  assign pc_moq = 1
-  for pc_tag in product.tags
-    assign pc_tag_lower = pc_tag | downcase
-    if pc_tag_lower == 'wholesale'
-      assign pc_is_wholesale = true
-    endif
-    if pc_tag_lower contains 'moq-'
-      assign pc_moq_str = pc_tag_lower | remove: 'moq-'
-      assign pc_moq = pc_moq_str | plus: 0
+  # XUW — detect wholesale tag
+  assign xuw_is_ws = false
+  for xuw_tag in product.tags
+    assign xuw_tag_lc = xuw_tag | downcase
+    if xuw_tag_lc == 'wholesale'
+      assign xuw_is_ws = true
     endif
   endfor
 
-  assign pc_retail_variant = nil
-  assign pc_ws_variant = nil
-  for pc_v in product.variants
-    assign pc_vt_lower = pc_v.title | downcase
-    if pc_vt_lower contains 'wholesale'
-      if pc_ws_variant == nil
-        assign pc_ws_variant = pc_v
+  # XUW — find retail + wholesale variants
+  assign xuw_retail_v = nil
+  assign xuw_ws_v = nil
+  for xuw_v in product.variants
+    assign xuw_vt = xuw_v.title | downcase
+    if xuw_vt contains 'wholesale'
+      if xuw_ws_v == nil
+        assign xuw_ws_v = xuw_v
       endif
-    elsif pc_retail_variant == nil and pc_v.available
-      assign pc_retail_variant = pc_v
+    else
+      if xuw_retail_v == nil
+        assign xuw_retail_v = xuw_v
+      endif
     endif
   endfor
-  if pc_retail_variant == nil
-    assign pc_retail_variant = product.selected_or_first_available_variant
+  if xuw_retail_v == nil
+    assign xuw_retail_v = product.selected_or_first_available_variant
   endif
-%}
+-%}
 
 <product-card
-  class="product-card size-style{% if pc_is_wholesale %} xuw-card{% endif %}"
+  class="product-card size-style{% if xuw_is_ws %} xuw-card{% endif %}"
   style="{% render 'size-style', settings: block_settings %}"
   data-product-id="{{ product.id }}"
   id="product-card-{{ block.id }}"
-  {% if pc_is_wholesale %}
+  {% if xuw_is_ws %}
     data-wholesale="true"
     data-current-mode="retail"
     data-handle="{{ product.handle }}"
-    data-moq="{{ pc_moq }}"
-    data-price="{{ pc_retail_variant.price }}"
-    data-available="{{ product.available }}"
+    data-retail-vid="{{ xuw_retail_v.id }}"
+    {% if xuw_ws_v != nil %}data-ws-vid="{{ xuw_ws_v.id }}"{% endif %}
   {% endif %}
   {% if settings.transition_to_main_product %}
     data-product-transition="true"
@@ -104,22 +95,17 @@
     on:click="/handleViewTransition"
   {% endif %}
   {{ block.shopify_attributes }}
-  {% if onboarding %}
-    data-placeholder="true"
-  {% endif %}
+  {% if onboarding %}data-placeholder="true"{% endif %}
 >
   <a
     id="{{ product_card_id | md5 }}"
-    {% unless onboarding %}
-      href="{{ variant_to_link.url }}"
-    {% endunless %}
+    {% unless onboarding %}href="{{ variant_to_link.url }}"{% endunless %}
     class="product-card__link"
     ref="productCardLink"
   >
-    <span class="visually-hidden">
-      {{ product.title }}
-    </span>
+    <span class="visually-hidden">{{ product.title }}</span>
   </a>
+
   <div
     class="
       product-card__content
@@ -146,32 +132,66 @@
     "
   >
     {{ children }}
-    {%- if pc_is_wholesale -%}
-      {%- if pc_ws_variant != nil -%}
-        <div class="xuw-card__ws-price-row">
-          <span class="xuw-ws-tag-sm">Wholesale</span>
-          <span class="xuw-ws-price-sm">{{ pc_ws_variant.price | money }}</span>
-          {%- if pc_retail_variant != nil and pc_retail_variant.price > pc_ws_variant.price -%}
-            <s class="xuw-retail-compare-sm">{{ pc_retail_variant.price | money }}</s>
-          {%- endif -%}
+
+    {%- if xuw_is_ws -%}
+      {%- comment %} XUW Wholesale Panel — shown on all wholesale-tagged products {%- endcomment -%}
+      <div class="xuw-panel" data-xuw-panel="{{ product.id }}">
+
+        {%- comment %} Price comparison rows {%- endcomment -%}
+        <div class="xuw-panel__prices">
+          <div class="xuw-panel__price-row xuw-panel__price-row--retail">
+            <span class="xuw-panel__type">Retail</span>
+            <span class="xuw-panel__amount">{{ xuw_retail_v.price | money }}</span>
+          </div>
+          <div class="xuw-panel__price-row xuw-panel__price-row--ws">
+            <span class="xuw-panel__type xuw-panel__type--ws">Wholesale</span>
+            {%- if xuw_ws_v != nil -%}
+              <span class="xuw-panel__amount xuw-panel__amount--ws">{{ xuw_ws_v.price | money }}</span>
+              {%- if xuw_retail_v.price > xuw_ws_v.price -%}
+                <span class="xuw-panel__save">Save {{ xuw_retail_v.price | minus: xuw_ws_v.price | money }}</span>
+              {%- endif -%}
+            {%- else -%}
+              <span class="xuw-panel__amount xuw-panel__amount--ws xuw-panel__amount--tiers">Up to 20% off</span>
+            {%- endif -%}
+          </div>
         </div>
-      {%- endif -%}
-      <div id="xuwPrice-{{ product.id }}" hidden aria-hidden="true">
-        <span class="xuw-price--retail"></span>
-        <span class="xuw-price--ws"></span>
+
+        {%- comment %} Mode selection + Quick Buy — stopPropagation prevents card navigation {%- endcomment -%}
+        <div class="xuw-panel__actions">
+          <div class="xuw-panel__modes" role="group" aria-label="Purchase type">
+            <button
+              class="xuw-panel__mode-btn xuw-panel__mode-btn--active"
+              data-mode="retail"
+              data-action="card-mode"
+              data-product-id="{{ product.id }}"
+              aria-pressed="true"
+              type="button"
+              onclick="event.stopPropagation()">Retail</button>
+            <button
+              class="xuw-panel__mode-btn"
+              data-mode="wholesale"
+              data-action="card-mode"
+              data-product-id="{{ product.id }}"
+              aria-pressed="false"
+              type="button"
+              onclick="event.stopPropagation()">Wholesale</button>
+          </div>
+          <button
+            class="xuw-panel__buy-btn"
+            data-action="quick-buy"
+            data-handle="{{ product.handle }}"
+            aria-label="Quick buy {{ product.title | escape }}"
+            type="button"
+            onclick="event.stopPropagation()">&#43; Quick Buy</button>
+        </div>
+
+        {%- comment %} Hidden price hooks for JS _cardSetMode compatibility {%- endcomment -%}
+        <div id="xuwPrice-{{ product.id }}" style="display:none" aria-hidden="true">
+          <span class="xuw-price--retail"></span>
+          <span class="xuw-price--ws"></span>
+        </div>
+
       </div>
-      <div class="xuw-card__mode-toggle" role="group" aria-label="Select pricing">
-        <button class="xuw-card__mode-btn is-active" data-mode="retail"
-          data-action="card-mode" data-product-id="{{ product.id }}"
-          aria-pressed="true" type="button">Retail</button>
-        <button class="xuw-card__mode-btn" data-mode="wholesale"
-          data-action="card-mode" data-product-id="{{ product.id }}"
-          aria-pressed="false" type="button">Wholesale</button>
-      </div>
-      <button class="xuw-btn xuw-btn--buy xuw-card__quick-buy"
-        data-action="quick-buy" data-handle="{{ product.handle }}"
-        aria-label="Quick buy {{ product.title | escape }}"
-        type="button">Quick Buy</button>
     {%- endif -%}
   </div>
 </product-card>
@@ -191,35 +211,139 @@
     }
   }
 
-  /* XUW wholesale price row — always visible on product card */
-  .xuw-card__ws-price-row {
+  /* ── XUW Wholesale Panel ─────────────────────────── */
+  .xuw-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-block-start: 4px;
+  }
+
+  .xuw-panel__prices {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    border-radius: 6px;
+    overflow: hidden;
+    border: 1px solid rgba(var(--color-border-rgb, 0 0 0) / 0.12);
+  }
+
+  .xuw-panel__price-row {
     display: flex;
     align-items: center;
     gap: 6px;
-    padding: 5px 8px;
-    border-radius: 5px;
-    background: rgba(39, 174, 96, 0.08);
-    border: 1px solid rgba(39, 174, 96, 0.25);
-    font-size: var(--font-size--sm);
+    padding: 5px 10px;
+    font-size: var(--font-size--sm, 13px);
   }
-  .xuw-ws-tag-sm {
+
+  .xuw-panel__price-row--retail {
+    background: rgba(var(--color-foreground-rgb, 0 0 0) / 0.04);
+  }
+
+  .xuw-panel__price-row--ws {
+    background: rgba(39, 174, 96, 0.08);
+  }
+
+  .xuw-panel__type {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: rgb(var(--color-foreground-rgb, 0 0 0) / 0.5);
+    min-width: 60px;
+    flex-shrink: 0;
+  }
+
+  .xuw-panel__type--ws {
+    color: #27ae60;
+  }
+
+  .xuw-panel__amount {
+    font-weight: 600;
+    color: var(--color-foreground);
+  }
+
+  .xuw-panel__amount--ws {
+    color: #27ae60;
+  }
+
+  .xuw-panel__amount--tiers {
+    font-size: 11px;
+    font-style: italic;
+  }
+
+  .xuw-panel__save {
     font-size: 10px;
     font-weight: 700;
     color: #fff;
     background: #27ae60;
     border-radius: 3px;
     padding: 1px 5px;
-    text-transform: uppercase;
-    flex-shrink: 0;
-    letter-spacing: 0.04em;
+    margin-inline-start: auto;
   }
-  .xuw-ws-price-sm {
+
+  /* Actions row */
+  .xuw-panel__actions {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+  }
+
+  .xuw-panel__modes {
+    display: flex;
+    gap: 3px;
+    flex: 1;
+    background: rgba(var(--color-foreground-rgb, 0 0 0) / 0.06);
+    border-radius: 6px;
+    padding: 3px;
+  }
+
+  .xuw-panel__mode-btn {
+    flex: 1;
+    padding: 5px 4px;
+    border: none;
+    border-radius: 4px;
+    background: transparent;
+    color: rgb(var(--color-foreground-rgb, 0 0 0) / 0.6);
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+  }
+
+  .xuw-panel__mode-btn--active,
+  .xuw-panel__mode-btn.is-active {
+    background: var(--color-background, #fff);
+    color: var(--color-foreground);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+  }
+
+  .xuw-panel__mode-btn[data-mode="wholesale"].xuw-panel__mode-btn--active,
+  .xuw-panel__mode-btn[data-mode="wholesale"].is-active {
+    background: #27ae60;
+    color: #fff;
+    box-shadow: 0 1px 3px rgba(39,174,96,0.3);
+  }
+
+  .xuw-panel__buy-btn {
+    padding: 7px 12px;
+    background: var(--color-foreground);
+    color: var(--color-background);
+    border: none;
+    border-radius: 6px;
+    font-size: 12px;
     font-weight: 700;
-    color: #27ae60;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: opacity 0.15s ease;
   }
-  .xuw-retail-compare-sm {
-    font-size: var(--font-size--xs);
-    color: rgb(var(--color-foreground-rgb) / 0.5);
-    text-decoration: line-through;
+
+  .xuw-panel__buy-btn:hover {
+    opacity: 0.85;
+  }
+
+  .xuw-card .xuw-panel__buy-btn {
+    flex-shrink: 0;
   }
 {% endstylesheet %}

@@ -139,6 +139,7 @@
           _directAddToCart(btn);
           break;
         case 'card-mode':
+          e.preventDefault(); e.stopPropagation();
           _cardSetMode(btn);
           break;
         case 'modal-mode':
@@ -188,11 +189,13 @@
       }
       if (e.target.id === 'xuwAddToCart') {
         if (!state.retailVariantId) { _toast('Please select a variant'); return; }
-        _cartAdd(_resolveVid(), state.qty, false); _closeModal();
+        var wsProps = state.modalMode === 'wholesale' ? { '_xuw_mode': 'wholesale' } : {};
+        _cartAdd(_resolveVid(), state.qty, false, wsProps); _closeModal();
       }
       if (e.target.id === 'xuwBuyNow') {
         if (!state.retailVariantId) { _toast('Please select a variant'); return; }
-        _cartAdd(_resolveVid(), state.qty, true); _closeModal();
+        var wsProps = state.modalMode === 'wholesale' ? { '_xuw_mode': 'wholesale' } : {};
+        _cartAdd(_resolveVid(), state.qty, true, wsProps); _closeModal();
       }
     });
   }
@@ -589,27 +592,20 @@
   /* Card wholesale toggle */
   function _cardSetMode(btn) {
     var mode = btn.getAttribute('data-mode');
-    var card = btn.closest('.xuw-card');
+    /* Support both old (.xuw-card__mode-btn) and new (.xuw-panel__mode-btn) card layouts */
+    var card = btn.closest('.xuw-card') || btn.closest('product-card');
     if (!card || !mode) return;
-    card.querySelectorAll('.xuw-card__mode-btn').forEach(function (b) {
+    card.querySelectorAll('.xuw-card__mode-btn, .xuw-panel__mode-btn').forEach(function (b) {
       var on = b.getAttribute('data-mode') === mode;
       b.classList.toggle('is-active', on);
+      b.classList.toggle('xuw-panel__mode-btn--active', on);
       b.setAttribute('aria-pressed', on.toString());
     });
     card.dataset.currentMode = mode;
-    var pid      = card.getAttribute('data-product-id');
-    var priceEl  = id('xuwPrice-' + pid);
-    var retailEl = priceEl && priceEl.querySelector('.xuw-price--retail');
-    var wsEl     = priceEl && priceEl.querySelector('.xuw-price--ws');
 
     if (mode === 'wholesale') {
-      if (retailEl) retailEl.style.opacity = '0.4';
-      if (wsEl)     { wsEl.textContent = 'See wholesale price \u2192'; wsEl.style.display = ''; wsEl.style.fontSize = '11px'; wsEl.style.color = 'var(--xuw-green-lt)'; }
-      /* Open modal in wholesale mode */
+      /* Open modal in wholesale mode so customer can add wholesale variant to cart */
       _openModal(card.getAttribute('data-handle'), null, card, 'wholesale');
-    } else {
-      if (retailEl) retailEl.style.opacity = '';
-      if (wsEl)     { wsEl.style.display = 'none'; wsEl.textContent = ''; }
     }
   }
 
@@ -678,13 +674,15 @@
     _cartAdd(parseInt(btn.getAttribute('data-variant-id'), 10), 1, false);
   }
 
-  function _cartAdd(variantId, qty, openCart) {
+  function _cartAdd(variantId, qty, openCart, extraProps) {
     if (!variantId) { _toast('Please select a product option'); return; }
     [D.addToCart, D.buyNow].forEach(function (b) { if (b) { b.disabled = true; b.style.opacity = '.55'; } });
+    var payload = { id: parseInt(variantId,10), quantity: qty };
+    if (extraProps && Object.keys(extraProps).length) { payload.properties = extraProps; }
     fetch('/cart/add.js', {
       method  : 'POST',
       headers : { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
-      body    : JSON.stringify({ id: parseInt(variantId,10), quantity: qty })
+      body    : JSON.stringify(payload)
     })
       .then(function (r) {
         if (r.status === 422) return r.json().then(function (e) { throw new Error(e.description || e.message || 'Cannot add'); });
@@ -695,6 +693,9 @@
         _toast('\u2713 Added to cart' + (qty > 1 ? ' (' + qty + ' units)' : '') + '!');
         _refreshCartCount();
         _fetchCartTotal();
+        /* Trigger Horizon cart drawer refresh */
+        document.dispatchEvent(new CustomEvent('cart:refresh', { bubbles: true }));
+        document.dispatchEvent(new CustomEvent('theme:cart:refresh', { bubbles: true }));
         if (openCart) { document.dispatchEvent(new CustomEvent('theme:cart:open', { bubbles: true })); setTimeout(function () { var b = document.querySelector('[data-cart-toggle],[data-open-cart],.js-cart-open,.header__cart-btn'); if (b) b.click(); }, 60); }
         else { var b = document.querySelector('[data-cart-toggle],.js-cart-open,.header__cart-btn'); if (b) { b.style.transition='transform .15s'; b.style.transform='scale(1.22)'; setTimeout(function(){b.style.transform='';},280); } }
       })

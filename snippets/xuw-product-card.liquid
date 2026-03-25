@@ -22,9 +22,17 @@
     endif
   endfor
   assign retail_variant = nil
+  assign ws_variant = nil
   for v in product.variants
-    if v.title != 'Wholesale' and retail_variant == nil and v.available
-      assign retail_variant = v
+    assign v_t = v.title | downcase
+    if v_t contains 'wholesale'
+      if ws_variant == nil
+        assign ws_variant = v
+      endif
+    else
+      if retail_variant == nil
+        assign retail_variant = v
+      endif
     endif
   endfor
   if retail_variant == nil
@@ -101,6 +109,25 @@
       </span>
       <span class="xuw-price--ws" style="display:none"></span>
     </div>
+    {%- if is_wholesale -%}
+      <div class="xuw-card__dual-price">
+        <div class="xuw-card__price-row xuw-card__price-row--retail">
+          <span class="xuw-card__price-label">Retail</span>
+          <span class="xuw-card__price-val">{{ retail_variant.price | money }}</span>
+        </div>
+        <div class="xuw-card__price-row xuw-card__price-row--ws">
+          <span class="xuw-card__price-label xuw-card__price-label--ws">Wholesale</span>
+          {%- if ws_variant != nil -%}
+            <span class="xuw-card__price-val xuw-card__price-val--ws">{{ ws_variant.price | money }}</span>
+            {%- if retail_variant.price > ws_variant.price -%}
+              <span class="xuw-card__price-save">Save {{ retail_variant.price | minus: ws_variant.price | money }}</span>
+            {%- endif -%}
+          {%- else -%}
+            <span class="xuw-card__price-val xuw-card__price-val--ws" style="font-size:11px;font-style:italic">Up to 20% off</span>
+          {%- endif -%}
+        </div>
+      </div>
+    {%- endif -%}
 
     {%- if is_wholesale -%}
       <div class="xuw-card__mode-toggle" role="group" aria-label="Select pricing">
