@@ -431,7 +431,25 @@
     can also provide server-side filtering below.
     {% endcomment %}
 
-    {%- comment %} Needle Count {% endcomment %}
+    {%- comment %} Needle Type (Block 3: needle-type tag values) {% endcomment %}
+    <div class="xuw-filter-group">
+      <button class="xuw-filter-group__head" data-action="toggle-group" aria-expanded="false" type="button">
+        <span>Needle Type</span>
+        <svg class="xuw-chevron xuw-chevron--closed" width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      </button>
+      <div class="xuw-filter-group__body" style="display:none">
+        {%- assign nt_labels = "Magnum,Round Liner,Round Shader,Soft Edge Magnum,Diamond,Slope Magnum,Specialty" | split: "," -%}
+        {%- assign nt_slugs  = "magnum,round-liner,round-shader,soft-edge-magnum,diamond,slope-magnum,specialty" | split: "," -%}
+        {%- for i in (0..6) -%}
+          <label class="xuw-check">
+            <input type="checkbox" class="xuw-fc xuw-fc--static" data-filter-key="tags" data-filter-val="{{ nt_slugs[i] }}">
+            <span class="xuw-check__box"></span><span class="xuw-check__label">{{ nt_labels[i] }}</span>
+          </label>
+        {%- endfor -%}
+      </div>
+    </div>
+
+    {%- comment %} Needle Count (Block 3: pin-count tag values) {% endcomment %}
     <div class="xuw-filter-group">
       <button class="xuw-filter-group__head" data-action="toggle-group" aria-expanded="false" type="button">
         <span>Needle Count</span>
@@ -445,11 +463,11 @@
               data-action="needle-pill" aria-pressed="false" type="button">{{ n }}</button>
           {%- endfor -%}
         </div>
-        <p class="xuw-hint">Tag products: 9-pin, 11-pin etc.</p>
+        <p class="xuw-hint">Tap a count to filter (e.g. 9-pin)</p>
       </div>
     </div>
 
-    {%- comment %} Taper {% endcomment %}
+    {%- comment %} Taper (Block 3: taper tag values) {% endcomment %}
     <div class="xuw-filter-group">
       <button class="xuw-filter-group__head" data-action="toggle-group" aria-expanded="false" type="button">
         <span>Taper</span>
@@ -467,7 +485,61 @@
       </div>
     </div>
 
-    {%- comment %} Ink Volume {% endcomment %}
+    {%- comment %} Needle Config (Block 3: config tag values) {% endcomment %}
+    <div class="xuw-filter-group">
+      <button class="xuw-filter-group__head" data-action="toggle-group" aria-expanded="false" type="button">
+        <span>Configuration</span>
+        <svg class="xuw-chevron xuw-chevron--closed" width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      </button>
+      <div class="xuw-filter-group__body" style="display:none">
+        {%- assign cfg_labels = "Open Magnum,Closed Magnum,Bugpin,Straight" | split: "," -%}
+        {%- assign cfg_slugs  = "open-magnum,closed-magnum,bugpin,straight"  | split: "," -%}
+        {%- for i in (0..3) -%}
+          <label class="xuw-check">
+            <input type="checkbox" class="xuw-fc xuw-fc--static" data-filter-key="tags" data-filter-val="{{ cfg_slugs[i] }}">
+            <span class="xuw-check__box"></span><span class="xuw-check__label">{{ cfg_labels[i] }}</span>
+          </label>
+        {%- endfor -%}
+      </div>
+    </div>
+
+    {%- comment %} Cartridge Line (Block 3: line tag values) {% endcomment %}
+    <div class="xuw-filter-group">
+      <button class="xuw-filter-group__head" data-action="toggle-group" aria-expanded="false" type="button">
+        <span>Cartridge Line</span>
+        <svg class="xuw-chevron xuw-chevron--closed" width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      </button>
+      <div class="xuw-filter-group__body" style="display:none">
+        {%- assign line_labels = "Biodegradable,Comfort,Needle Cartridge,Slim Line" | split: "," -%}
+        {%- assign line_slugs  = "biodegradable,comfort,needle-cartridge,slim-line"  | split: "," -%}
+        {%- for i in (0..3) -%}
+          <label class="xuw-check">
+            <input type="checkbox" class="xuw-fc xuw-fc--static" data-filter-key="tags" data-filter-val="{{ line_slugs[i] }}">
+            <span class="xuw-check__box"></span><span class="xuw-check__label">{{ line_labels[i] }}</span>
+          </label>
+        {%- endfor -%}
+      </div>
+    </div>
+
+    {%- comment %} Cartridge Brand (Block 3: brand-slug tag values) {% endcomment %}
+    <div class="xuw-filter-group">
+      <button class="xuw-filter-group__head" data-action="toggle-group" aria-expanded="false" type="button">
+        <span>Cartridge Brand</span>
+        <svg class="xuw-chevron xuw-chevron--closed" width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      </button>
+      <div class="xuw-filter-group__body" style="display:none">
+        {%- assign bslug_labels = "Magic Moon,Kwadron,Lunar PMU" | split: "," -%}
+        {%- assign bslug_slugs  = "magic-moon,kwadron,lunar-pmu" | split: "," -%}
+        {%- for i in (0..2) -%}
+          <label class="xuw-check">
+            <input type="checkbox" class="xuw-fc xuw-fc--static" data-filter-key="tags" data-filter-val="{{ bslug_slugs[i] }}">
+            <span class="xuw-check__box"></span><span class="xuw-check__label">{{ bslug_labels[i] }}</span>
+          </label>
+        {%- endfor -%}
+      </div>
+    </div>
+
+    {%- comment %} Ink Volume (Block 3: volume tag values) {% endcomment %}
     <div class="xuw-filter-group">
       <button class="xuw-filter-group__head" data-action="toggle-group" aria-expanded="false" type="button">
         <span>Ink Volume</span>
@@ -484,14 +556,14 @@
       </div>
     </div>
 
-    {%- comment %} Brand {% endcomment %}
+    {%- comment %} Brand — all 44 exact vendor strings from Block 3 {% endcomment %}
     <div class="xuw-filter-group">
       <button class="xuw-filter-group__head" data-action="toggle-group" aria-expanded="false" type="button">
         <span>Brand</span>
         <svg class="xuw-chevron xuw-chevron--closed" width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
       </button>
       <div class="xuw-filter-group__body" style="display:none">
-        {%- assign brands = "Magic Moon,Cheyenne,Critical,Kwadron,Lunar PMU,FK Irons,Neuma,Musotoku,Equaliser,InkJecta,Legend,Shagbuilt,ArtDriver,World Famous,Kuro Sumi,Intenze,Perma Blend,I AM INK,Panthera,Polybius,Apex Eternal,Dynamic,Eclipse,Talens,Dermalize,Unigloves,Hustle Butter,Eberhard Faber,Tombow,UNI,Spirit,Tattoo Workz" | split: "," -%}
+        {%- assign brands = "Magic Moon,Magic Moon Shop,Lunar PMU,UNI,Cheyenne,Critical,Kwadron,Tombow,Eberhard Faber,FK Irons,Unigloves,Neuma,Tattoo Workz,Legend,Musotoku,Spirit,Sara Pavo,Equaliser,I AM INK,InkTrox,Shagbuilt,Unistar,Dermalize,InkJecta,Stencil Stuff,Method,Hustle Butter,Maximo,Inklab,Polybius,Stigma-Rotary,ArtDriver,Dragonhawk,Nemesis,World Famous,Intenze,Kuro Sumi,Perma Blend,Panthera,Apex Eternal,Dynamic,Eclipse,Talens,Various" | split: "," -%}
         {%- for b in brands -%}
           <label class="xuw-check">
             <input type="checkbox" class="xuw-fc xuw-fc--static" data-filter-key="vendor" data-filter-val="{{ b | downcase }}">
