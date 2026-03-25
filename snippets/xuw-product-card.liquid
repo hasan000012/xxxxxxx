@@ -1,46 +1,58 @@
 {% comment %}
-  XUW Product Card — snippets/xuw-product-card.liquid — v10
-  V10: V3 spec — dual price zones in DOM (Rule 11), sliding WS toggle,
-  stock dot, single quick-buy CTA. Both .xuw-price-retail and
-  .xuw-price-wholesale always exist in DOM. JS toggles .xuw-is-hidden.
+  XUW Product Card — snippets/xuw-product-card.liquid — v11
+  V11: V5 spec — string-accumulator variant detection, data-single-variant,
+  .xuw-stock-dot, .xuw-ws-toggle__lbl, .xuw-price__ws-val, data-action="atc"
+  Rule 11: both price zones always in DOM for wholesale products.
 {% endcomment %}
 
 {%- liquid
-  assign first_variant  = product.selected_or_first_available_variant
-  assign sold_out       = false
-  unless product.available
-    assign sold_out = true
-  endunless
+  comment
+    VARIANT DETECTION — string accumulator approach (Rule 4 safe, case-insensitive)
+    Builds a CSV of retail variant IDs, then splits to count. Avoids brittle integer counters.
+  endcomment
+
   assign is_wholesale = false
-  if product.tags contains 'wholesale' or product.tags contains 'Wholesale'
-    assign is_wholesale = true
-  endif
   assign moq = 1
-  for tag in product.tags
-    if tag contains 'moq-'
-      assign moq_str = tag | remove: 'moq-'
-      assign moq     = moq_str | plus: 0
-    endif
-  endfor
-  assign retail_variant = nil
-  assign ws_variant     = nil
-  for v in product.variants
-    assign v_t = v.title | downcase
-    if v_t contains 'wholesale'
-      if ws_variant == nil
-        assign ws_variant = v
+
+  if product.tags contains 'wholesale'
+    assign is_wholesale = true
+    for tag in product.tags
+      if tag contains 'moq-'
+        assign moq_str = tag | remove: 'moq-'
+        assign moq = moq_str | times: 1
       endif
-    else
+    endfor
+  endif
+
+  assign retail_ids    = ''
+  assign retail_variant = nil
+  for v in product.variants
+    assign v_title_lower = v.title | downcase
+    if v_title_lower != 'wholesale'
+      assign retail_ids = retail_ids | append: v.id | append: ','
       if retail_variant == nil
         assign retail_variant = v
       endif
     endif
   endfor
-  if retail_variant == nil
-    assign retail_variant = first_variant
+
+  assign retail_id_arr  = retail_ids | split: ','
+  assign retail_count   = retail_id_arr | size | minus: 1
+  assign single_variant = false
+  if retail_count == 1
+    assign single_variant = true
   endif
+
+  if retail_variant == nil
+    assign retail_variant = product.selected_or_first_available_variant
+  endif
+
   assign img_alt     = product.featured_media.alt | default: product.title | escape
   assign tags_string = product.tags | join: ',' | downcase
+  assign sold_out    = false
+  unless product.available
+    assign sold_out = true
+  endunless
 -%}
 
 <div class="xuw-card{% if sold_out %} xuw-card--soldout{% endif %}"
@@ -49,14 +61,15 @@
   data-wholesale="{{ is_wholesale }}"
   data-moq="{{ moq }}"
   data-current-mode="retail"
+  data-single-variant="{{ single_variant }}"
+  data-variant-id="{{ retail_variant.id }}"
+  data-available="{{ product.available }}"
   data-tags="{{ tags_string }}"
   data-product-type="{{ product.type | downcase | escape }}"
-  data-vendor="{{ product.vendor | downcase | escape }}"
-  data-available="{{ product.available }}"
-  data-price="{{ retail_variant.price }}">
+  data-vendor="{{ product.vendor | downcase | escape }}">
 
   <div class="xuw-card__img-wrap">
-    <a href="{{ product.url }}">
+    <a href="{{ product.url }}" tabindex="-1" aria-hidden="true">
       {%- if product.featured_media -%}
         <img class="xuw-card__img"
           src="{{ product.featured_media | image_url: width: 400 }}"
@@ -64,13 +77,12 @@
           width="400" height="400"
           loading="lazy">
       {%- else -%}
-        <div class="xuw-card__img-placeholder" aria-hidden="true">
-          <span>{{ product.title | slice: 0, 2 | upcase }}</span>
-        </div>
+        <div class="xuw-card__img-placeholder" aria-hidden="true"></div>
       {%- endif -%}
     </a>
 
-    {%- if product.tags contains 'new' or product.tags contains 'NEW' -%}
+    {%- comment %} Priority badge: only one of new/hot/sale renders {% endcomment %}
+    {%- if product.tags contains 'new' -%}
       <span class="xuw-badge xuw-badge--new">NEW</span>
     {%- elsif product.tags contains 'hot' -%}
       <span class="xuw-badge xuw-badge--hot">HOT</span>
@@ -78,13 +90,15 @@
       <span class="xuw-badge xuw-badge--sale">SALE</span>
     {%- endif -%}
     {%- if product.tags contains 'eco' -%}
-      <span class="xuw-badge xuw-badge--eco">ECO</span>
+      <span class="xuw-badge xuw-badge--eco"
+        style="top:{% if product.tags contains 'new' or product.tags contains 'hot' or product.tags contains 'sale' %}32px{% else %}8px{% endif %}">ECO</span>
     {%- endif -%}
     {%- if is_wholesale -%}
       <span class="xuw-badge xuw-badge--ws">WS</span>
     {%- endif -%}
 
-    <span class="xuw-card__stock-dot{% unless product.available %} is-oos{% endunless %}"></span>
+    <span class="xuw-stock-dot{% unless product.available %} is-oos{% endunless %}"
+          aria-label="{% if product.available %}In stock{% else %}Out of stock{% endif %}"></span>
   </div>
 
   <div class="xuw-card__body">
@@ -99,47 +113,45 @@
       <a href="{{ product.url }}">{{ product.title }}</a>
     </p>
 
-    <div class="xuw-card__price-zone" aria-live="polite">
+    <div class="xuw-card__price-zone" aria-live="polite" aria-atomic="true">
 
       <div class="xuw-price-retail">
-        {%- if retail_variant.compare_at_price > retail_variant.price -%}
-          <span class="xuw-price__compare">{{ retail_variant.compare_at_price | money }}</span>
+        {%- if product.compare_at_price > product.price -%}
+          <span class="xuw-price__was">{{ product.compare_at_price | money }}</span>
         {%- endif -%}
-        <span class="xuw-price__current">
-          {%- if product.price_varies -%}From {{ product.price_min | money }}
-          {%- else -%}{{ retail_variant.price | money }}
-          {%- endif -%}
-        </span>
+        <span class="xuw-price__now">{{ product.price | money }}</span>
       </div>
 
+      {%- comment %}
+        Wholesale zone: ALWAYS rendered for wholesale products (Rule 11).
+        Hidden via xuw-is-hidden by default. JS populates .xuw-price__ws-val and removes the class.
+        NEVER remove this div. NEVER generate a wholesale card without it.
+      {%- endcomment %}
       {%- if is_wholesale -%}
       <div class="xuw-price-wholesale xuw-is-hidden">
-        <span class="xuw-price__retail-crossed">{{ retail_variant.price | money }}</span>
-        <div class="xuw-price__ws-row">
-          <span class="xuw-price__ws-amount">—</span>
-          <span class="xuw-pill xuw-pill--gold">WS</span>
+        <span class="xuw-price__crossed">{{ product.price | money }}</span>
+        <div class="xuw-price__ws-line">
+          <span class="xuw-price__ws-val">—</span>
+          <span class="xuw-ws-pill">WS</span>
         </div>
-        <p class="xuw-price__moq-note">
-          Typical order: <strong class="xuw-moq-qty">{{ moq }}</strong>+ units
-        </p>
+        <p class="xuw-price__moq">Min. suggest: <strong>{{ moq }}</strong> units</p>
       </div>
       {%- endif -%}
 
     </div>
 
     {%- if is_wholesale -%}
-    <div class="xuw-card__ws-toggle-row">
-      <button
-        class="xuw-ws-toggle"
+    <div class="xuw-card__toggle-row">
+      <button class="xuw-ws-toggle"
         data-action="card-mode"
         data-handle="{{ product.handle }}"
         aria-pressed="false"
-        aria-label="Toggle wholesale pricing"
+        aria-label="Show wholesale pricing for {{ product.title | escape }}"
         type="button">
         <span class="xuw-ws-toggle__track">
           <span class="xuw-ws-toggle__pill"></span>
         </span>
-        <span class="xuw-ws-toggle__label">Wholesale</span>
+        <span class="xuw-ws-toggle__lbl">Wholesale</span>
       </button>
     </div>
     {%- endif -%}
@@ -156,14 +168,15 @@
     {%- endif -%}
 
     {%- if sold_out -%}
-      <button class="xuw-btn xuw-btn--primary xuw-btn--full"
+      <button class="xuw-btn--primary"
         disabled aria-disabled="true" type="button">Out of Stock</button>
     {%- else -%}
-      <button
-        class="xuw-btn xuw-btn--primary xuw-btn--full"
-        data-action="quick-buy"
+      <button class="xuw-btn--primary"
+        data-action="atc"
         data-handle="{{ product.handle }}"
-        aria-label="Quick buy {{ product.title | escape }}"
+        data-variant-id="{{ retail_variant.id }}"
+        data-single="{{ single_variant }}"
+        aria-label="Add {{ product.title | escape }} to cart"
         type="button">+ Add to Cart</button>
     {%- endif -%}
 

@@ -1,29 +1,21 @@
+// @ts-nocheck
 /**
- * X Under World — Collection JS  |  assets/xuw-collection.js  |  v9.0
+ * X Under World — Collection JS  |  assets/xuw-collection.js  |  v10.0
  *
- * V9 CHANGES:
+ * V10 / V5 SPEC CHANGES:
  * ─────────────────────────────────────────────────────────────────────────────
- * 1. FULL EVENT DELEGATION — no inline onclick anywhere.
- *    All interactions handled via document.addEventListener + data-action routing.
- *
- * 2. VALUE-BASED WHOLESALE — no fixed MOQ.
- *    Tiers applied to estimated cart value (qty × unit price):
- *      €300+  = 3%  off
- *      €500+  = 5%  off
- *      €1000+ = 10% off
- *      €2000+ = 20% off
- *    Live discount shown as qty changes in modal.
- *    Customer can buy any quantity — no floor enforced.
- *
- * 3. HERO SLIDER — auto-advance every 6s, keyboard nav, dots + arrows.
- *
- * 4. WHOLESALE MODE OPEN FIX (from v8.1):
- *    xuwOpenModal accepts cardEl + forceMode to avoid null-event race condition.
- *
- * 5. CART TOTAL FETCH — on wholesale mode, fetches /cart.js to show
- *    current cart value + applicable tier discount in real time.
- *
- * 6. SIDEBAR WHOLESALE TIER TABLE — toggled visible when wholesale mode active.
+ * 1. _formatMoney(cents) — DOM-based, reads data-fmt from #xuw-money-fmt span.
+ * 2. _atcSetState(btn, state) — 4-state ATC button: default/loading/success/error.
+ * 3. Multi-type _toast(type, msg) — lazy-mounted stack, slide animation, dismiss.
+ * 4. _handleAtc(btn) — 2-Click Rule: direct add for single-variant retail;
+ *    modal fallback for multi-variant or wholesale mode.
+ * 5. _cardSetMode V5 — .is-loading lock + _applyCardMode helper.
+ * 6. V5 modal IDs (hyphenated): xuw-modal-overlay, xuw-modal-content, etc.
+ * 7. _openModal sets state.modalMode synchronously BEFORE fetch (race fix).
+ * 8. _cartAdd(variantId, qty, btn, card) — 4-arg signature; 422 → contact btn.
+ * 9. Full event delegation: atc, card-mode, close-modal, modal-atc, modal-mode,
+ *    pick-variant, qty-inc, qty-dec, close-toast, hero-prev, hero-next, hero-dot.
+ * 10. _refreshCartCount dispatches xuw:cart-updated custom event.
  */
 
 (function () {
@@ -45,6 +37,25 @@
     ]
   };
 
+  /* ═══════════════ MONEY FORMAT ═══════════════ */
+  var _moneyFmt = null;
+
+  function _formatMoney(cents) {
+    if (_moneyFmt === null) {
+      var span = document.getElementById('xuw-money-fmt');
+      _moneyFmt = (span && span.getAttribute('data-fmt')) || '{{amount_with_comma_separator}} €';
+    }
+    var amount = ((parseInt(cents, 10) || 0) / 100).toFixed(2);
+    var amountComma = amount.replace('.', ',');
+    var amountDot   = amount;
+    var amountInt   = String(Math.round(parseInt(cents, 10) / 100));
+    return _moneyFmt
+      .replace('{{amount_with_comma_separator}}', amountComma)
+      .replace('{{amount_no_decimals_with_comma_separator}}', amountInt)
+      .replace('{{amount_no_decimals}}', amountInt)
+      .replace('{{amount}}', amountDot);
+  }
+
   /* ═══════════════ STATE ═══════════════ */
   var state = {
     product         : null,
@@ -61,41 +72,34 @@
     dropdownIndex   : -1,
     sliderIndex     : 0,
     sliderTimer     : null,
-    cartTotal       : 0     // current cart total in euros (fetched)
+    cartTotal       : 0
   };
 
   var D = {};
 
   /* ═══════════════ INIT ═══════════════ */
   document.addEventListener('DOMContentLoaded', function () {
-    D.overlay         = id('xuwModalOverlay');
-    D.closeBtn        = id('xuwModalClose');
-    D.spinner         = id('xuwModalLoading');
-    D.qtyVal          = id('xuwQtyVal');
-    D.qtyMinus        = id('xuwQtyMinus');
-    D.qtyPlus         = id('xuwQtyPlus');
-    D.toast           = id('xuwToast');
+    /* V5 modal IDs (hyphenated) */
+    D.overlay        = id('xuw-modal-overlay');
+    D.modalInner     = id('xuw-modal-inner');
+    D.modalContent   = id('xuw-modal-content');
+    D.spinner        = id('xuw-modal-loading');
+    D.modalVendor    = id('xuw-modal-vendor');
+    D.modalTitle     = id('xuw-modal-title');
+    D.modeRow        = id('xuw-modal-mode-row');
+    D.variantPills   = id('xuw-modal-variants');
+    D.modalPrice     = id('xuw-modal-price');
+    D.wsTiers        = id('xuw-modal-tiers');
+    D.wsNote         = id('xuw-modal-ws-note');
+    D.qtyVal         = id('xuw-modal-qty');
+    D.addToCart      = id('xuw-modal-atc');
+
+    /* Non-modal UI */
     D.search          = id('xuwSearch');
     D.searchClear     = id('xuwSearchClear');
-    D.modalImg        = id('xuwModalImg');
-    D.modalImgPh      = id('xuwModalImgPh');
-    D.modalThumbs     = id('xuwModalThumbs');
-    D.modeNote        = id('xuwModalModeNote');
-    D.modeRetail      = id('xuwModeRetail');
-    D.modeWholesale   = id('xuwModeWholesale');
-    D.modalPrice      = id('xuwModalPrice');
-    D.modalWsBadge    = id('xuwModalWsBadge');
-    D.variantsWrap    = id('xuwModalVariantsWrap');
-    D.variantPills    = id('xuwModalVariants');
-    D.addToCart       = id('xuwAddToCart');
-    D.buyNow          = id('xuwBuyNow');
     D.activeChips     = id('xuwActiveChips');
     D.chipList        = id('xuwChipList');
     D.filterBadge     = id('xuwFilterBadge');
-    D.wsInfo          = id('xuwModalWsInfo');
-    D.wsTiers         = id('xuwModalWsTiers');
-    D.wsNote          = id('xuwModalWsNote');
-    D.cartNote        = id('xuwModalCartNote');
     D.heroSearch      = id('xuwHeroSearch');
     D.heroSearchClear = id('xuwHeroSearchClear');
     D.searchDropdown  = id('xuwSearchDropdown');
@@ -130,24 +134,100 @@
       var action = btn.getAttribute('data-action');
 
       switch (action) {
-        case 'quick-buy':
+
+        /* ── Card ATC (V5 2-Click Rule) ── */
+        case 'atc':
           e.preventDefault(); e.stopPropagation();
-          _openModal(btn.getAttribute('data-handle'), e, btn.closest('.xuw-card'), null);
+          _handleAtc(btn);
           break;
-        case 'direct-atc':
-          e.preventDefault(); e.stopPropagation();
-          _directAddToCart(btn);
-          break;
+
+        /* ── Card wholesale toggle ── */
         case 'card-mode':
           e.preventDefault(); e.stopPropagation();
           _cardSetMode(btn);
           break;
+
+        /* ── Modal overlay / close button ── */
+        case 'close-modal':
+          if (btn === D.overlay && e.target !== D.overlay) break; /* inner click passthrough */
+          _closeModal();
+          break;
+
+        /* ── Modal ATC ── */
+        case 'modal-atc':
+          e.preventDefault();
+          _handleModalAtc();
+          break;
+
+        /* ── Modal mode switch (Retail / Wholesale) ── */
         case 'modal-mode':
           _modalSetMode(btn.getAttribute('data-mode'));
           break;
-        case 'set-ws-mode':
-          _sidebarSetMode(btn.getAttribute('data-mode'));
+
+        /* ── Modal variant pill ── */
+        case 'pick-variant': {
+          var vid = parseInt(btn.getAttribute('data-variant-id'), 10);
+          if (!vid || !state.product) break;
+          var vv = null;
+          for (var pi = 0; pi < state.product.variants.length; pi++) {
+            if (state.product.variants[pi].id === vid) { vv = state.product.variants[pi]; break; }
+          }
+          if (!vv) break;
+          state.retailVariantId = vv.id;
+          if (D.variantPills) {
+            D.variantPills.querySelectorAll('[data-action="pick-variant"]').forEach(function (p) {
+              p.classList.toggle('is-active', parseInt(p.getAttribute('data-variant-id'), 10) === vid);
+              p.setAttribute('aria-pressed', (parseInt(p.getAttribute('data-variant-id'), 10) === vid).toString());
+            });
+          }
+          _updateModalPrice(vv);
+          _updateWsTierDisplay();
           break;
+        }
+
+        /* ── Modal qty ── */
+        case 'qty-dec':
+          state.qty = Math.max(1, state.qty - 1);
+          if (D.qtyVal) D.qtyVal.textContent = state.qty;
+          _updateWsTierDisplay();
+          break;
+
+        case 'qty-inc':
+          state.qty++;
+          if (D.qtyVal) D.qtyVal.textContent = state.qty;
+          _updateWsTierDisplay();
+          break;
+
+        /* ── Toast dismiss ── */
+        case 'close-toast': {
+          var toast = btn.closest('.xuw-toast');
+          if (toast) _dismissToast(toast);
+          break;
+        }
+
+        /* ── Hero slider ── */
+        case 'hero-prev':
+          _sliderGo(state.sliderIndex - 1);
+          break;
+        case 'hero-next':
+          _sliderGo(state.sliderIndex + 1);
+          break;
+        case 'hero-dot':
+          _sliderGo(parseInt(btn.getAttribute('data-slide'), 10));
+          break;
+
+        /* ── Legacy slider aliases ── */
+        case 'slider-prev':
+          _sliderGo(state.sliderIndex - 1);
+          break;
+        case 'slider-next':
+          _sliderGo(state.sliderIndex + 1);
+          break;
+        case 'slider-goto':
+          _sliderGo(parseInt(btn.getAttribute('data-slide'), 10));
+          break;
+
+        /* ── Filter / sidebar ── */
         case 'toggle-group':
           _toggleGroup(btn);
           break;
@@ -163,41 +243,75 @@
         case 'clear-search':
           _clearSearch();
           break;
-        case 'slider-prev':
-          _sliderGo(state.sliderIndex - 1);
-          break;
-        case 'slider-next':
-          _sliderGo(state.sliderIndex + 1);
-          break;
-        case 'slider-goto':
-          _sliderGo(parseInt(btn.getAttribute('data-slide'), 10));
+        case 'set-ws-mode':
+          _sidebarSetMode(btn.getAttribute('data-mode'));
           break;
       }
     });
+  }
 
-    /* Qty buttons */
-    document.addEventListener('click', function (e) {
-      if (e.target.id === 'xuwQtyMinus') {
-        state.qty = Math.max(1, state.qty - 1);
-        if (D.qtyVal) D.qtyVal.textContent = state.qty;
-        _updateWsTierDisplay();
-      }
-      if (e.target.id === 'xuwQtyPlus') {
-        state.qty++;
-        if (D.qtyVal) D.qtyVal.textContent = state.qty;
-        _updateWsTierDisplay();
-      }
-      if (e.target.id === 'xuwAddToCart') {
-        if (!state.retailVariantId) { _toast('Please select a variant'); return; }
-        var wsProps = state.modalMode === 'wholesale' ? { '_xuw_mode': 'wholesale' } : {};
-        _cartAdd(_resolveVid(), state.qty, false, wsProps); _closeModal();
-      }
-      if (e.target.id === 'xuwBuyNow') {
-        if (!state.retailVariantId) { _toast('Please select a variant'); return; }
-        var wsProps = state.modalMode === 'wholesale' ? { '_xuw_mode': 'wholesale' } : {};
-        _cartAdd(_resolveVid(), state.qty, true, wsProps); _closeModal();
-      }
-    });
+  /* ═══════════════════════════════════════════════
+     2-CLICK RULE — _handleAtc
+     Single-variant retail → direct add.
+     Multi-variant or wholesale mode → open modal.
+  ═══════════════════════════════════════════════ */
+  function _handleAtc(btn) {
+    var card = btn.closest('.xuw-card');
+    if (!card) return;
+    var isWholesale   = card.dataset.wholesale === 'true';
+    var currentMode   = card.dataset.currentMode || 'retail';
+    var isSingle      = btn.getAttribute('data-single') === 'true' ||
+                        card.dataset.singleVariant === 'true';
+
+    /* Wholesale mode → always open modal */
+    if (isWholesale && currentMode === 'wholesale') {
+      _openModal(card.getAttribute('data-handle'), null, card, 'wholesale');
+      return;
+    }
+
+    /* Multi-variant retail → open modal */
+    if (!isSingle) {
+      _openModal(card.getAttribute('data-handle'), null, card, 'retail');
+      return;
+    }
+
+    /* Single-variant retail → direct add */
+    var variantId = parseInt(btn.getAttribute('data-variant-id') || card.dataset.variantId, 10);
+    if (!variantId) {
+      _toast('error', 'Could not find product variant');
+      return;
+    }
+    _cartAdd(variantId, 1, btn, card);
+  }
+
+  /* ═══════════════════════════════════════════════
+     ATC BUTTON STATE — 4 states
+  ═══════════════════════════════════════════════ */
+  function _atcSetState(btn, btnState) {
+    if (!btn) return;
+    btn.removeAttribute('data-atc-state');
+    btn.setAttribute('data-atc-state', btnState);
+
+    switch (btnState) {
+      case 'loading':
+        btn.disabled = true;
+        btn.innerHTML = '<span class="xuw-spin" aria-hidden="true"></span> Adding\u2026';
+        break;
+      case 'success':
+        btn.disabled = false;
+        btn.innerHTML = '\u2713 Added!';
+        setTimeout(function () { _atcSetState(btn, 'default'); }, 2000);
+        break;
+      case 'error':
+        btn.disabled = false;
+        btn.innerHTML = 'Try Again';
+        setTimeout(function () { _atcSetState(btn, 'default'); }, 3000);
+        break;
+      default: /* 'default' */
+        btn.disabled = false;
+        btn.innerHTML = '+ Add to Cart';
+        break;
+    }
   }
 
   /* ═══════════════════════════════════════════════
@@ -208,8 +322,6 @@
     if (!slider) return;
     _sliderGo(0);
     _sliderResetTimer();
-
-    /* Pause on hover */
     slider.addEventListener('mouseenter', function () { clearInterval(state.sliderTimer); });
     slider.addEventListener('mouseleave', _sliderResetTimer);
   }
@@ -294,7 +406,7 @@
       var pl = document.createElement('div'); pl.className = 'xuw-search-section-label'; pl.textContent = 'Products'; D.searchDropdown.appendChild(pl);
       products.forEach(function (product) {
         var imgSrc = product.featured_image && product.featured_image.url ? product.featured_image.url : '';
-        var price  = product.price ? _money(Math.round(parseFloat(product.price)*100)) : '';
+        var price  = product.price ? _formatMoney(Math.round(parseFloat(product.price)*100)) : '';
         var a = document.createElement('a'); a.className = 'xuw-search-result'; a.href = product.url; a.tabIndex = 0;
         var img = imgSrc ? '<img src="' + _esc(imgSrc) + '" alt="" loading="lazy">' : '<span>' + _esc((product.title||'').slice(0,2).toUpperCase()) + '</span>';
         a.innerHTML = '<div class="xuw-search-result__img">' + img + '</div><div class="xuw-search-result__info"><p class="xuw-search-result__title">' + _highlight(product.title||'',q) + '</p><p class="xuw-search-result__meta">' + _esc(product.vendor||'') + (price?' · '+price:'') + '</p></div>';
@@ -322,11 +434,13 @@
   }
 
   /* ═══════════════════════════════════════════════
-     MODAL
+     MODAL — open / close / render
   ═══════════════════════════════════════════════ */
   function _openModal(handle, event, cardEl, forceMode) {
     if (event) { event.preventDefault(); event.stopPropagation(); }
     var card = cardEl || (event && event.target ? event.target.closest('.xuw-card') : null);
+
+    /* V5: set modalMode BEFORE fetch to prevent race condition */
     state.modalMode       = forceMode || (card && card.dataset.currentMode) || state.globalMode || 'retail';
     state.product         = null;
     state.retailVariantId = null;
@@ -336,74 +450,72 @@
 
     _clearModalUI();
     _setModalModeBtns(state.modalMode);
-    _updateModeNote();
     _showWsInfo(state.modalMode === 'wholesale');
 
-    if (D.overlay) { D.overlay.classList.add('is-open'); D.overlay.setAttribute('aria-hidden','false'); }
-    if (D.spinner) D.spinner.style.display = 'flex';
+    /* Show overlay, show spinner, hide content */
+    if (D.overlay)      { D.overlay.classList.remove('xuw-is-hidden'); D.overlay.setAttribute('aria-hidden','false'); }
+    if (D.spinner)      D.spinner.style.display = 'flex';
+    if (D.modalContent) D.modalContent.classList.add('xuw-is-hidden');
+    if (D.qtyVal)       D.qtyVal.textContent = '1';
 
     fetch('/products/' + encodeURIComponent(handle) + '.js')
       .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
-      .then(function (p) { state.product = p; _renderModal(p); })
-      .catch(function () { _toast('Could not load product. Please try again.'); _closeModal(); })
-      .finally(function () { if (D.spinner) D.spinner.style.display = 'none'; });
+      .then(function (p) {
+        state.product = p;
+        _renderModal(p);
+        if (D.spinner)      D.spinner.style.display = 'none';
+        if (D.modalContent) D.modalContent.classList.remove('xuw-is-hidden');
+      })
+      .catch(function () {
+        _toast('error', 'Could not load product. Please try again.');
+        _closeModal();
+      });
   }
 
-  /* Global export for any external calls */
+  /* Global export for external calls */
   window.xuwOpenModal = function(handle, event, cardEl, forceMode) {
     _openModal(handle, event, cardEl, forceMode);
   };
 
   function _clearModalUI() {
-    _t('xuwModalVendor',''); _t('xuwModalName','');
-    _h('xuwModalPrice','');  _t('xuwModalDesc','');
-    if (D.qtyVal)        D.qtyVal.textContent     = '1';
-    if (D.variantPills)  D.variantPills.innerHTML  = '';
-    if (D.variantsWrap)  D.variantsWrap.style.display = 'none';
-    if (D.modalThumbs)   D.modalThumbs.innerHTML   = '';
-    if (D.modalImg)      D.modalImg.style.display   = 'none';
-    if (D.modalImgPh)    D.modalImgPh.style.display = 'flex';
-    if (D.modalWsBadge)  D.modalWsBadge.style.display = 'none';
-    if (D.cartNote)      D.cartNote.style.display = 'none';
-    var prevContact = document.getElementById('xuwContactBtn');
+    if (D.modalVendor)  D.modalVendor.textContent  = '';
+    if (D.modalTitle)   D.modalTitle.textContent   = '';
+    if (D.modalPrice)   D.modalPrice.innerHTML     = '';
+    if (D.variantPills) D.variantPills.innerHTML   = '';
+    if (D.qtyVal)       D.qtyVal.textContent       = '1';
+    if (D.modeRow)      D.modeRow.classList.add('xuw-is-hidden');
+    if (D.wsTiers)      D.wsTiers.classList.add('xuw-is-hidden');
+    /* Remove any previously injected contact button */
+    var prevContact = document.getElementById('xuw-contact-btn');
     if (prevContact) prevContact.parentNode.removeChild(prevContact);
   }
 
   function _renderModal(product) {
-    _t('xuwModalVendor', product.vendor || '');
-    _t('xuwModalName',   product.title  || '');
-    var desc = _stripHtml(product.description || '');
-    _t('xuwModalDesc', desc.length > 200 ? desc.slice(0,200) + '\u2026' : desc);
+    if (D.modalVendor) D.modalVendor.textContent = product.vendor || '';
+    if (D.modalTitle)  D.modalTitle.textContent  = product.title  || '';
 
-    var imgs = product.images || [];
-    var main = product.featured_image || (imgs.length ? imgs[0] : null);
-    if (main && D.modalImg) {
-      D.modalImg.src = main; D.modalImg.alt = product.title; D.modalImg.style.display = 'block';
-      if (D.modalImgPh) D.modalImgPh.style.display = 'none';
+    state.wsVariantId    = null;
+    state.wsVariantPrice = null;
+    var wsV = null;
+    for (var i = 0; i < product.variants.length; i++) {
+      if (product.variants[i].title.toLowerCase() === CFG.WS_VARIANT_TITLE) {
+        wsV = product.variants[i]; break;
+      }
     }
-    if (D.modalThumbs && imgs.length > 1) {
-      D.modalThumbs.innerHTML = '';
-      imgs.slice(0,4).forEach(function (src, i) {
-        var btn = document.createElement('button'); btn.type = 'button';
-        btn.className = 'xuw-modal__thumb' + (i === 0 ? ' is-active' : '');
-        var img = document.createElement('img'); img.src = src; img.alt = 'View ' + (i+1); img.loading = 'lazy';
-        btn.appendChild(img);
-        btn.addEventListener('click', function () {
-          if (D.modalImg) D.modalImg.src = src;
-          D.modalThumbs.querySelectorAll('.xuw-modal__thumb').forEach(function (b) { b.classList.remove('is-active'); });
-          btn.classList.add('is-active');
-        });
-        D.modalThumbs.appendChild(btn);
-      });
-    }
-
-    state.wsVariantId = null; state.wsVariantPrice = null;
-    var wsV = product.variants.find(function (v) { return v.title.toLowerCase() === CFG.WS_VARIANT_TITLE; });
     if (wsV) { state.wsVariantId = wsV.id; state.wsVariantPrice = wsV.price; }
-    if (D.modalWsBadge) D.modalWsBadge.style.display = state.wsVariantId ? '' : 'none';
+
+    /* Show mode row only for wholesale products */
+    if (D.modeRow) {
+      if (state.wsVariantId) {
+        D.modeRow.classList.remove('xuw-is-hidden');
+      } else {
+        D.modeRow.classList.add('xuw-is-hidden');
+        state.modalMode = 'retail';
+        _setModalModeBtns('retail');
+      }
+    }
 
     _renderVariants(product);
-    _updateModeNote();
     _showWsInfo(state.modalMode === 'wholesale');
     _updateWsTierDisplay();
   }
@@ -417,29 +529,24 @@
     if (!selectable.length) selectable = product.variants;
 
     if (selectable.length === 1 && selectable[0].title === 'Default Title') {
-      if (D.variantsWrap) D.variantsWrap.style.display = 'none';
       state.retailVariantId = selectable[0].id;
       _updateModalPrice(selectable[0]);
       return;
     }
-    if (D.variantsWrap) D.variantsWrap.style.display = 'block';
+
     var firstAvail = selectable.find(function (v) { return v.available; }) || selectable[0];
     state.retailVariantId = firstAvail.id;
     _updateModalPrice(firstAvail);
+
     selectable.forEach(function (variant) {
       var pill = document.createElement('button'); pill.type = 'button';
       var isA = variant.id === state.retailVariantId;
       pill.className = 'xuw-variant-pill' + (isA ? ' is-active' : '') + (!variant.available ? ' is-unavailable' : '');
       pill.textContent = variant.title;
+      pill.setAttribute('data-action', 'pick-variant');
+      pill.setAttribute('data-variant-id', variant.id);
       pill.setAttribute('aria-pressed', isA.toString());
       if (!variant.available) pill.disabled = true;
-      pill.addEventListener('click', function () {
-        D.variantPills.querySelectorAll('.xuw-variant-pill').forEach(function (p) { p.classList.remove('is-active'); p.setAttribute('aria-pressed','false'); });
-        pill.classList.add('is-active'); pill.setAttribute('aria-pressed','true');
-        state.retailVariantId = variant.id;
-        _updateModalPrice(variant);
-        _updateWsTierDisplay();
-      });
       D.variantPills.appendChild(pill);
     });
   }
@@ -447,11 +554,9 @@
   /* ═══════════════════════════════════════════════
      WHOLESALE VALUE-TIER SYSTEM
   ═══════════════════════════════════════════════ */
-
   function _modalSetMode(mode) {
     state.modalMode = mode;
     _setModalModeBtns(mode);
-    _updateModeNote();
     _showWsInfo(mode === 'wholesale');
     if (state.retailVariantId && state.product) {
       var v = state.product.variants.find(function (x) { return x.id === state.retailVariantId; });
@@ -461,35 +566,25 @@
   }
 
   function _setModalModeBtns(mode) {
-    [D.modeRetail, D.modeWholesale].forEach(function (btn) {
-      if (!btn) return;
+    if (!D.modeRow) return;
+    D.modeRow.querySelectorAll('[data-action="modal-mode"]').forEach(function (btn) {
       var on = btn.getAttribute('data-mode') === mode;
       btn.classList.toggle('is-active', on);
       btn.setAttribute('aria-pressed', on.toString());
     });
   }
 
-  function _updateModeNote() {
-    if (!D.modeNote) return;
-    var ws = state.modalMode === 'wholesale';
-    D.modeNote.textContent = ws ? 'Wholesale mode — bulk discounts apply by cart value' : 'Standard retail pricing';
-    D.modeNote.style.color = ws ? 'var(--xuw-green-lt)' : '';
-  }
-
   function _showWsInfo(show) {
-    if (D.wsInfo) D.wsInfo.style.display = show ? '' : 'none';
+    if (D.wsTiers) {
+      if (show) D.wsTiers.classList.remove('xuw-is-hidden');
+      else      D.wsTiers.classList.add('xuw-is-hidden');
+    }
   }
 
-  /*
-   * _calcWsTierDiscount(unitPriceCents, qty)
-   * Returns { pct, discountedPriceCents, orderValueEur }
-   * Tier is based on the ORDER VALUE of this product (qty × unit price)
-   * PLUS the existing cart total. Customer doesn't need a fixed minimum qty.
-   */
   function _calcWsTierDiscount(unitPriceCents, qty) {
-    var unitPriceEur   = (unitPriceCents || 0) / 100;
-    var orderValueEur  = unitPriceEur * qty;
-    var totalEur       = state.cartTotal + orderValueEur;
+    var unitPriceEur  = (unitPriceCents || 0) / 100;
+    var orderValueEur = unitPriceEur * qty;
+    var totalEur      = state.cartTotal + orderValueEur;
     var tier = null;
     for (var i = 0; i < CFG.WS_TIERS.length; i++) {
       if (totalEur >= CFG.WS_TIERS[i].min) { tier = CFG.WS_TIERS[i]; break; }
@@ -505,9 +600,7 @@
     if (!unitPriceCents) return;
     var result = _calcWsTierDiscount(unitPriceCents, state.qty);
 
-    /* Update tier table highlights */
     if (D.wsTiers) {
-      /* Find the lowest tier the customer hasn't reached yet — that's "Next" */
       var nextTierMin = null;
       for (var ti = 0; ti < CFG.WS_TIERS.length; ti++) {
         if (result.totalEur < CFG.WS_TIERS[ti].min) {
@@ -528,32 +621,19 @@
       });
     }
 
-    /* Live note */
     if (D.wsNote) {
       if (result.pct > 0) {
-        D.wsNote.textContent = result.pct + '% discount applied. Order total: ' + _moneyEur(result.totalEur) + '.';
+        D.wsNote.textContent = result.pct + '% discount applied. Order total: \u20AC' + result.totalEur.toFixed(2).replace('.',',') + '.';
         D.wsNote.style.color = 'var(--xuw-green-lt)';
       } else {
         var needed = 300 - result.totalEur;
-        D.wsNote.textContent = needed > 0 ? 'Add ' + _moneyEur(needed) + ' more to unlock 3% discount.' : '';
+        D.wsNote.textContent = needed > 0 ? 'Add \u20AC' + needed.toFixed(2).replace('.',',') + ' more to unlock 3% discount.' : '';
         D.wsNote.style.color = '#888';
-      }
-    }
-
-    /* Cart note near qty */
-    if (D.cartNote) {
-      if (result.pct > 0) {
-        D.cartNote.textContent = 'Price with ' + result.pct + '% discount: ' + _money(result.discountedPriceCents) + ' / unit';
-        D.cartNote.style.display = '';
-        D.cartNote.style.color = 'var(--xuw-green-lt)';
-      } else {
-        D.cartNote.style.display = 'none';
       }
     }
   }
 
   function _getWsUnitPrice() {
-    /* Use wholesale variant price if available, else retail price */
     if (state.wsVariantPrice) return state.wsVariantPrice;
     if (state.retailVariantId && state.product) {
       var v = state.product.variants.find(function (x) { return x.id === state.retailVariantId; });
@@ -562,51 +642,28 @@
     return null;
   }
 
-  function _getWsPrice() {
-    if (state.wsVariantPrice) return state.wsVariantPrice;
-    if (state.retailVariantId && state.product) {
-      var v = state.product.variants.find(function (x) { return x.id === state.retailVariantId; });
-      if (v && v.compare_at_price && v.compare_at_price > v.price) return v.price;
-    }
-    return null;
-  }
-
   function _updateModalPrice(variant) {
     if (!D.modalPrice) return;
-    if (state.modalMode === 'wholesale') {
-      var ws = _getWsPrice();
-      if (ws !== null) {
-        var retail = (variant.compare_at_price > variant.price) ? variant.compare_at_price : variant.price;
-        var p = document.createElement('span'); p.className = 'xuw-price--compare'; p.textContent = _money(retail);
-        var w = document.createElement('span'); w.className = 'xuw-price--ws-main'; w.textContent = _money(ws);
-        D.modalPrice.innerHTML = ''; D.modalPrice.appendChild(p); D.modalPrice.appendChild(w);
-        if (D.modalWsBadge) D.modalWsBadge.style.display = '';
-      } else {
-        D.modalPrice.textContent = _money(variant.price);
-        var setup = document.createElement('span'); setup.className = 'xuw-price--ws-setup';
-        setup.textContent = 'Add a "Wholesale" variant in Shopify admin';
-        D.modalPrice.appendChild(setup);
-        if (D.modalWsBadge) D.modalWsBadge.style.display = 'none';
-      }
+    D.modalPrice.innerHTML = '';
+    if (state.modalMode === 'wholesale' && state.wsVariantPrice) {
+      var c = document.createElement('span'); c.className = 'xuw-price--compare'; c.textContent = _formatMoney(variant.price);
+      var w = document.createElement('span'); w.className = 'xuw-price--ws-main'; w.textContent = _formatMoney(state.wsVariantPrice);
+      D.modalPrice.appendChild(c); D.modalPrice.appendChild(w);
     } else {
-      D.modalPrice.innerHTML = '';
       if (variant.compare_at_price && variant.compare_at_price > variant.price) {
-        var c = document.createElement('span'); c.className = 'xuw-price--compare'; c.textContent = _money(variant.compare_at_price);
-        D.modalPrice.appendChild(c);
+        var cc = document.createElement('span'); cc.className = 'xuw-price--compare'; cc.textContent = _formatMoney(variant.compare_at_price);
+        D.modalPrice.appendChild(cc);
       }
-      D.modalPrice.appendChild(document.createTextNode(_money(variant.price)));
-      if (D.modalWsBadge) D.modalWsBadge.style.display = 'none';
+      D.modalPrice.appendChild(document.createTextNode(_formatMoney(variant.price)));
     }
   }
 
-  /* Card wholesale toggle — V3 Block 5 Step 2
-   * Reads: btn.aria-pressed (current state), data-handle, closest .xuw-card
-   * Outputs: toggles .xuw-is-hidden on price zones, fetches WS price from /products/handle.js
-   * Risk: fetch may fail — revert toggle. Cache fetched price via data-fetched attr.
-   */
+  /* ═══════════════════════════════════════════════
+     CARD WHOLESALE TOGGLE — V5
+  ═══════════════════════════════════════════════ */
   function _cardSetMode(btn) {
-    var cardEl  = btn.closest('.xuw-card');
-    var handle  = btn.getAttribute('data-handle') || (cardEl && cardEl.getAttribute('data-handle'));
+    var cardEl = btn.closest('.xuw-card');
+    var handle = btn.getAttribute('data-handle') || (cardEl && cardEl.getAttribute('data-handle'));
     if (!cardEl || !handle) return;
 
     var isActive = btn.getAttribute('aria-pressed') === 'true';
@@ -616,25 +673,21 @@
     btn.classList.toggle('is-active', newMode === 'wholesale');
     btn.setAttribute('aria-pressed', (newMode === 'wholesale').toString());
 
-    var wsBadge   = cardEl.querySelector('.xuw-badge--ws');
-    var retailZone = cardEl.querySelector('.xuw-price-retail');
-    var wsZone    = cardEl.querySelector('.xuw-price-wholesale');
-
     if (newMode === 'retail') {
-      if (retailZone) retailZone.classList.remove('xuw-is-hidden');
-      if (wsZone)     wsZone.classList.add('xuw-is-hidden');
-      if (wsBadge)    wsBadge.classList.remove('is-active');
+      _applyCardMode(cardEl, 'retail');
       return;
     }
 
-    /* Wholesale — use cached price if already fetched */
-    var wsAmountEl = wsZone && wsZone.querySelector('.xuw-price__ws-amount');
-    if (wsAmountEl && wsAmountEl.getAttribute('data-fetched') === 'true') {
-      if (retailZone) retailZone.classList.add('xuw-is-hidden');
-      if (wsZone)     wsZone.classList.remove('xuw-is-hidden');
-      if (wsBadge)    wsBadge.classList.add('is-active');
+    /* Wholesale: check cache first */
+    var wsValEl = cardEl.querySelector('.xuw-price__ws-val');
+    if (wsValEl && wsValEl.getAttribute('data-fetched') === 'true') {
+      _applyCardMode(cardEl, 'wholesale');
       return;
     }
+
+    /* Loading state */
+    btn.classList.add('is-loading');
+    btn.disabled = true;
 
     fetch('/products/' + encodeURIComponent(handle) + '.js')
       .then(function (r) { return r.json(); })
@@ -645,56 +698,53 @@
             wsV = product.variants[i]; break;
           }
         }
-        if (!wsV) return;
-        if (wsAmountEl) {
-          wsAmountEl.textContent = _money(wsV.price);
-          wsAmountEl.setAttribute('data-fetched', 'true');
+        if (!wsV) {
+          /* No wholesale variant — revert */
+          cardEl.dataset.currentMode = 'retail';
+          btn.classList.remove('is-active');
+          btn.setAttribute('aria-pressed', 'false');
+          return;
         }
-        if (retailZone) retailZone.classList.add('xuw-is-hidden');
-        if (wsZone)     wsZone.classList.remove('xuw-is-hidden');
-        if (wsBadge)    wsBadge.classList.add('is-active');
+        if (wsValEl) {
+          wsValEl.textContent = _formatMoney(wsV.price);
+          wsValEl.setAttribute('data-fetched', 'true');
+        }
+        _applyCardMode(cardEl, 'wholesale');
       })
       .catch(function () {
-        /* Revert toggle on error */
         cardEl.dataset.currentMode = 'retail';
         btn.classList.remove('is-active');
         btn.setAttribute('aria-pressed', 'false');
+      })
+      .finally(function () {
+        btn.classList.remove('is-loading');
+        btn.disabled = false;
       });
   }
 
-  /* Sidebar wholesale mode toggle */
-  function _sidebarSetMode(mode) {
-    state.globalMode = mode;
-    document.querySelectorAll('.xuw-ws-btn[data-action="set-ws-mode"]').forEach(function (b) {
-      b.classList.toggle('is-active', b.getAttribute('data-mode') === mode);
-    });
-    var note = id('xuwSidebarModeNote');
-    if (note) note.textContent = mode === 'wholesale' ? '\u2713 Wholesale mode active — bulk discounts by cart value' : 'Standard retail pricing';
-    if (D.sidebarTiers) D.sidebarTiers.style.display = mode === 'wholesale' ? '' : 'none';
+  function _applyCardMode(cardEl, mode) {
+    var retailZone = cardEl.querySelector('.xuw-price-retail');
+    var wsZone     = cardEl.querySelector('.xuw-price-wholesale');
+    if (mode === 'wholesale') {
+      if (retailZone) retailZone.classList.add('xuw-is-hidden');
+      if (wsZone)     wsZone.classList.remove('xuw-is-hidden');
+    } else {
+      if (retailZone) retailZone.classList.remove('xuw-is-hidden');
+      if (wsZone)     wsZone.classList.add('xuw-is-hidden');
+    }
+  }
 
-    /* Apply to all eligible cards */
-    document.querySelectorAll('.xuw-card[data-wholesale="true"]').forEach(function (card) {
-      var pid  = card.getAttribute('data-product-id');
-      var mBtn = card.querySelector('.xuw-card__mode-btn[data-mode="' + mode + '"]');
-      if (mBtn && pid) {
-        card.querySelectorAll('.xuw-card__mode-btn').forEach(function (b) {
-          var on = b.getAttribute('data-mode') === mode;
-          b.classList.toggle('is-active', on);
-          b.setAttribute('aria-pressed', on.toString());
-        });
-        card.dataset.currentMode = mode;
-        var priceEl  = id('xuwPrice-' + pid);
-        var retailEl = priceEl && priceEl.querySelector('.xuw-price--retail');
-        var wsEl     = priceEl && priceEl.querySelector('.xuw-price--ws');
-        if (mode === 'wholesale') {
-          if (retailEl) retailEl.style.opacity = '0.4';
-          if (wsEl) { wsEl.textContent = 'See wholesale price'; wsEl.style.display = ''; wsEl.style.fontSize = '11px'; wsEl.style.color = 'var(--xuw-green-lt)'; }
-        } else {
-          if (retailEl) retailEl.style.opacity = '';
-          if (wsEl) { wsEl.style.display = 'none'; wsEl.textContent = ''; }
-        }
-      }
-    });
+  /* ═══════════════════════════════════════════════
+     MODAL ATC
+  ═══════════════════════════════════════════════ */
+  function _handleModalAtc() {
+    if (!state.retailVariantId) {
+      _toast('info', 'Please select a variant first.');
+      return;
+    }
+    var btn = D.addToCart;
+    _cartAdd(state.retailVariantId, state.qty, btn, null);
+    _closeModal();
   }
 
   /* ═══════════════════════════════════════════════
@@ -703,95 +753,143 @@
   function _fetchCartTotal() {
     fetch('/cart.js')
       .then(function (r) { return r.json(); })
-      .then(function (cart) {
-        state.cartTotal = (cart.total_price || 0) / 100;
-      })
+      .then(function (cart) { state.cartTotal = (cart.total_price || 0) / 100; })
       .catch(function () {});
   }
 
-  function _resolveVid() {
-    /* Rule 9: wholesale variant is NEVER added to cart.
-       Always return the customer's selected size variant. */
-    return state.retailVariantId;
-  }
+  function _cartAdd(variantId, qty, btn, card) {
+    if (!variantId) { _toast('error', 'Please select a product option'); return; }
+    _atcSetState(btn, 'loading');
 
-  function _directAddToCart(btn) {
-    var card = btn.closest('.xuw-card');
-    if (card && card.dataset.currentMode === 'wholesale' && card.dataset.wholesale === 'true') {
-      _openModal(card.getAttribute('data-handle'), null, card, 'wholesale'); return;
-    }
-    if (card && card.querySelector('.xuw-card__variants-hint')) {
-      _openModal(card.getAttribute('data-handle'), null, card, 'retail'); return;
-    }
-    _cartAdd(parseInt(btn.getAttribute('data-variant-id'), 10), 1, false);
-  }
-
-  function _cartAdd(variantId, qty, openCart, extraProps) {
-    if (!variantId) { _toast('Please select a product option'); return; }
-    [D.addToCart, D.buyNow].forEach(function (b) { if (b) { b.disabled = true; b.style.opacity = '.55'; } });
-    var payload = { id: parseInt(variantId,10), quantity: qty };
-    if (extraProps && Object.keys(extraProps).length) { payload.properties = extraProps; }
+    var payload = { id: parseInt(variantId, 10), quantity: qty };
     fetch('/cart/add.js', {
       method  : 'POST',
       headers : { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
       body    : JSON.stringify(payload)
     })
       .then(function (r) {
-        if (r.status === 422) return r.json().then(function (e) { throw new Error(e.description || e.message || 'Cannot add'); });
-        if (!r.ok) throw new Error('HTTP ' + r.status);
+        if (r.status === 422) return r.json().then(function (e) { throw { status: 422, msg: e.description || e.message || 'Cannot add' }; });
+        if (!r.ok) throw { status: r.status, msg: 'HTTP ' + r.status };
         return r.json();
       })
       .then(function () {
-        _toast('\u2713 Added to cart' + (qty > 1 ? ' (' + qty + ' units)' : '') + '!');
+        _atcSetState(btn, 'success');
+        _toast('success', '\u2713 Added to cart' + (qty > 1 ? ' (' + qty + ' units)' : '') + '!');
         _refreshCartCount();
         _fetchCartTotal();
-        /* Trigger Horizon cart drawer refresh */
-        document.dispatchEvent(new CustomEvent('cart:refresh', { bubbles: true }));
+        document.dispatchEvent(new CustomEvent('cart:refresh',       { bubbles: true }));
         document.dispatchEvent(new CustomEvent('theme:cart:refresh', { bubbles: true }));
-        if (openCart) { document.dispatchEvent(new CustomEvent('theme:cart:open', { bubbles: true })); setTimeout(function () { var b = document.querySelector('[data-cart-toggle],[data-open-cart],.js-cart-open,.header__cart-btn'); if (b) b.click(); }, 60); }
-        else { var b = document.querySelector('[data-cart-toggle],.js-cart-open,.header__cart-btn'); if (b) { b.style.transition='transform .15s'; b.style.transform='scale(1.22)'; setTimeout(function(){b.style.transform='';},280); } }
       })
       .catch(function (err) {
-        _toast(err.message || 'Error adding to cart');
-        if (state.product) {
-          var vTitle = '';
-          if (state.retailVariantId && state.product.variants) {
-            for (var vi = 0; vi < state.product.variants.length; vi++) {
-              if (state.product.variants[vi].id === state.retailVariantId) { vTitle = state.product.variants[vi].title; break; }
-            }
-          }
-          _injectCartContactBtn(state.product.handle, qty, vTitle);
+        var msg = (err && err.msg) ? err.msg : 'Error adding to cart';
+        _atcSetState(btn, 'error');
+        _toast('error', msg);
+        if (err && err.status === 422 && card) {
+          _injectContactBtn(card, variantId, qty);
         }
-      })
-      .finally(function () { [D.addToCart, D.buyNow].forEach(function (b) { if (b) { b.disabled = false; b.style.opacity = ''; } }); });
+      });
   }
 
-  function _injectCartContactBtn(handle, qty, variantTitle) {
-    var actionsEl = document.getElementById('xuwModalActions') ||
-                    (D.addToCart && D.addToCart.parentNode);
-    if (!actionsEl) return;
-    var prev = document.getElementById('xuwContactBtn');
-    if (prev) return; /* already injected */
-    var params = 'ref=stock&product=' + encodeURIComponent(handle || '') +
-                 '&variant=' + encodeURIComponent(variantTitle || '') +
+  function _injectContactBtn(card, variantId, qty) {
+    /* Prevent duplicates */
+    if (card.querySelector('#xuw-contact-btn')) return;
+    var handle = card.getAttribute('data-handle') || '';
+    var params = 'ref=stock&product=' + encodeURIComponent(handle) +
+                 '&variant=' + encodeURIComponent(variantId || '') +
                  '&qty=' + encodeURIComponent(qty || 1);
-    var btn = document.createElement('a');
-    btn.id        = 'xuwContactBtn';
-    btn.className = 'xuw-btn xuw-btn--contact';
-    btn.href      = '/pages/contact?' + params;
-    btn.textContent = 'Contact Us to Order';
-    btn.setAttribute('target', '_blank');
-    btn.setAttribute('rel', 'noopener');
-    actionsEl.appendChild(btn);
+    var a = document.createElement('a');
+    a.id        = 'xuw-contact-btn';
+    a.className = 'xuw-btn--contact';
+    a.href      = '/pages/contact?' + params;
+    a.textContent = 'Contact Us to Order';
+    a.setAttribute('target', '_blank');
+    a.setAttribute('rel', 'noopener');
+    var actionsEl = card.querySelector('.xuw-card__body');
+    if (actionsEl) actionsEl.appendChild(a);
   }
 
   function _refreshCartCount() {
     fetch('/cart.js').then(function (r) { return r.json(); }).then(function (cart) {
       var n = cart.item_count;
       ['[data-cart-count]','[data-header-cart-count]','.cart-count','.header__cart-count','.cart-item-count','#CartCount','.js-cart-count'].forEach(function (sel) {
-        document.querySelectorAll(sel).forEach(function (el) { el.textContent = n||''; if(n>0) el.removeAttribute('hidden'); });
+        document.querySelectorAll(sel).forEach(function (el) { el.textContent = n || ''; if (n > 0) el.removeAttribute('hidden'); });
       });
-    }).catch(function(){});
+      document.dispatchEvent(new CustomEvent('xuw:cart-updated', { bubbles: true, detail: { item_count: n } }));
+    }).catch(function () {});
+  }
+
+  /* ═══════════════════════════════════════════════
+     MODAL CLOSE
+  ═══════════════════════════════════════════════ */
+  function _initModalClose() {
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && D.overlay && !D.overlay.classList.contains('xuw-is-hidden')) _closeModal();
+    });
+  }
+
+  function _closeModal() {
+    if (D.overlay) { D.overlay.classList.add('xuw-is-hidden'); D.overlay.setAttribute('aria-hidden', 'true'); }
+    if (D.modalContent) D.modalContent.classList.add('xuw-is-hidden');
+    if (D.spinner) D.spinner.style.display = 'none';
+  }
+
+  /* ═══════════════════════════════════════════════
+     SIDEBAR WHOLESALE MODE
+  ═══════════════════════════════════════════════ */
+  function _sidebarSetMode(mode) {
+    state.globalMode = mode;
+    document.querySelectorAll('[data-action="set-ws-mode"]').forEach(function (b) {
+      b.classList.toggle('is-active', b.getAttribute('data-mode') === mode);
+    });
+    var note = id('xuwSidebarModeNote');
+    if (note) note.textContent = mode === 'wholesale' ? '\u2713 Wholesale mode active — bulk discounts by cart value' : 'Standard retail pricing';
+    if (D.sidebarTiers) D.sidebarTiers.style.display = mode === 'wholesale' ? '' : 'none';
+  }
+
+  /* ═══════════════════════════════════════════════
+     TOAST — V5 multi-type, lazy-mounted stack
+  ═══════════════════════════════════════════════ */
+  function _getToastRoot() {
+    var root = document.getElementById('xuw-toast-root');
+    if (!root) {
+      root = document.createElement('div');
+      root.id = 'xuw-toast-root';
+      root.setAttribute('aria-live', 'polite');
+      root.setAttribute('aria-atomic', 'false');
+      document.body.appendChild(root);
+    }
+    return root;
+  }
+
+  function _toast(type, msg) {
+    var root = _getToastRoot();
+    var t = document.createElement('div');
+    t.className = 'xuw-toast xuw-toast--' + (type || 'info');
+    t.setAttribute('role', 'status');
+
+    var txt = document.createElement('span');
+    txt.textContent = msg;
+
+    var closeBtn = document.createElement('button');
+    closeBtn.type = 'button';
+    closeBtn.className = 'xuw-toast__close';
+    closeBtn.setAttribute('data-action', 'close-toast');
+    closeBtn.setAttribute('aria-label', 'Dismiss');
+    closeBtn.innerHTML = '&times;';
+
+    t.appendChild(txt);
+    t.appendChild(closeBtn);
+    root.appendChild(t);
+
+    /* Auto-dismiss */
+    var delay = type === 'error' ? 5000 : 3200;
+    setTimeout(function () { _dismissToast(t); }, delay);
+  }
+
+  function _dismissToast(t) {
+    if (!t || !t.parentNode) return;
+    t.classList.add('xuw-toast--out');
+    setTimeout(function () { if (t.parentNode) t.parentNode.removeChild(t); }, 350);
   }
 
   /* ═══════════════════════════════════════════════
@@ -859,9 +957,9 @@
       var matched = false;
       for (var j = 0; j < vals.length; j++) {
         var v = vals[j];
-        if (key === 'tags')         { var tags = (card.getAttribute('data-tags')||'').toLowerCase().split(',').map(function(t){return t.trim();}); if (tags.indexOf(v) !== -1) { matched=true; break; } }
+        if (key === 'tags')          { var tags = (card.getAttribute('data-tags')||'').toLowerCase().split(',').map(function(t){return t.trim();}); if (tags.indexOf(v) !== -1) { matched=true; break; } }
         else if (key === 'product-type') { if ((card.getAttribute('data-product-type')||'').toLowerCase().trim() === v) { matched=true; break; } }
-        else if (key === 'vendor')  { if ((card.getAttribute('data-vendor')||'').toLowerCase().trim() === v) { matched=true; break; } }
+        else if (key === 'vendor')   { if ((card.getAttribute('data-vendor')||'').toLowerCase().trim() === v) { matched=true; break; } }
         else if (key === 'available') { if (v === 'true' && card.getAttribute('data-available') === 'true') { matched=true; break; } }
       }
       if (!matched) return false;
@@ -946,42 +1044,15 @@
   }
 
   /* ═══════════════════════════════════════════════
-     MODAL CLOSE
-  ═══════════════════════════════════════════════ */
-  function _initModalClose() {
-    if (D.closeBtn) D.closeBtn.addEventListener('click', _closeModal);
-    if (D.overlay)  D.overlay.addEventListener('click', function (e) { if (e.target === D.overlay) _closeModal(); });
-    document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && D.overlay && D.overlay.classList.contains('is-open')) _closeModal(); });
-  }
-
-  function _closeModal() {
-    if (D.overlay) { D.overlay.classList.remove('is-open'); D.overlay.setAttribute('aria-hidden','true'); }
-  }
-
-  /* ═══════════════════════════════════════════════
-     TOAST
-  ═══════════════════════════════════════════════ */
-  function _toast(msg) {
-    if (!D.toast) return;
-    D.toast.textContent = msg; D.toast.classList.add('is-visible');
-    clearTimeout(_toast._t);
-    _toast._t = setTimeout(function () { D.toast.classList.remove('is-visible'); }, 3200);
-  }
-
-  /* ═══════════════════════════════════════════════
      HELPERS
   ═══════════════════════════════════════════════ */
-  function _money(cents)    { return '\u20AC' + ((parseInt(cents,10)||0)/100).toFixed(2).replace('.',','); }
-  function _moneyEur(eur)   { return '\u20AC' + eur.toFixed(2).replace('.',','); }
   function _stripHtml(html) { var d = document.createElement('div'); d.innerHTML = html; return d.textContent || d.innerText || ''; }
   function _highlight(text, q) {
     if (!q) return _esc(text);
     var re = new RegExp('(' + q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&') + ')', 'gi');
     return _esc(text).replace(re, '<mark>$1</mark>');
   }
-  function _esc(s)          { var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
-  function _t(elId, text)   { var e = id(elId); if (e) e.textContent = text; }
-  function _h(elId, html)   { var e = id(elId); if (e) e.innerHTML = html; }
-  function id(elId)         { return document.getElementById(elId); }
+  function _esc(s) { var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+  function id(elId) { return document.getElementById(elId); }
 
 })();

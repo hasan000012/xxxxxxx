@@ -64,6 +64,7 @@
   }
 </style>
 {%- comment %} CSS + JS now loaded globally via snippets/xuw-global.liquid {% endcomment %}
+<span id="xuw-money-fmt" data-fmt="{{ shop.money_format }}" style="display:none" aria-hidden="true"></span>
 
 {%- comment %} ══ 4-SLIDE HERO CAROUSEL ══ {% endcomment %}
 {%- if show_hero -%}
@@ -179,33 +180,27 @@
 {%- comment %} ══ HOMEPAGE SECTIONS ══ {% endcomment %}
 {%- if is_homepage -%}
 
-{%- comment %} Section 2: Quick-Category Strip {% endcomment %}
+{%- comment %} Section 2: Quick-Category Pill Row (V5) {% endcomment %}
 <section class="xuw-section--hp" aria-label="Shop by category">
   <h2 class="xuw-section__heading">{{ section.settings.cat_strip_heading | default: 'Shop by Category' }}</h2>
-  <div class="xuw-cat-strip">
-    <a class="xuw-cat-tile" href="/collections/magic-moon-needles">
-      <span class="xuw-cat-tile__icon" aria-hidden="true">&#x1F489;</span>
-      <span class="xuw-cat-tile__label">Needles</span>
+  <div class="xuw-pill-row">
+    <a class="xuw-cat-pill" href="/collections/magic-moon-needles">
+      <span class="xuw-cat-pill__dot" aria-hidden="true"></span>Needles
     </a>
-    <a class="xuw-cat-tile" href="/collections/cartridges">
-      <span class="xuw-cat-tile__icon" aria-hidden="true">&#x1F4E6;</span>
-      <span class="xuw-cat-tile__label">Cartridges</span>
+    <a class="xuw-cat-pill" href="/collections/magic-moon-cartridges">
+      <span class="xuw-cat-pill__dot" aria-hidden="true"></span>Cartridges
     </a>
-    <a class="xuw-cat-tile" href="/collections/tattoo-inks">
-      <span class="xuw-cat-tile__icon" aria-hidden="true">&#x1F3A8;</span>
-      <span class="xuw-cat-tile__label">Inks</span>
+    <a class="xuw-cat-pill" href="/collections/tattoo-inks">
+      <span class="xuw-cat-pill__dot" aria-hidden="true"></span>Inks
     </a>
-    <a class="xuw-cat-tile" href="/collections/tattoo-machines">
-      <span class="xuw-cat-tile__icon" aria-hidden="true">&#x26A1;</span>
-      <span class="xuw-cat-tile__label">Machines</span>
+    <a class="xuw-cat-pill" href="/collections/tattoo-machines">
+      <span class="xuw-cat-pill__dot" aria-hidden="true"></span>Machines
     </a>
-    <a class="xuw-cat-tile" href="/collections/aftercare">
-      <span class="xuw-cat-tile__icon" aria-hidden="true">&#x1FA79;</span>
-      <span class="xuw-cat-tile__label">Care &amp; Aftercare</span>
+    <a class="xuw-cat-pill" href="/collections/tattoo-aftercare-products">
+      <span class="xuw-cat-pill__dot" aria-hidden="true"></span>Aftercare
     </a>
-    <a class="xuw-cat-tile" href="/collections/accessories">
-      <span class="xuw-cat-tile__icon" aria-hidden="true">&#x1F6E1;</span>
-      <span class="xuw-cat-tile__label">Accessories</span>
+    <a class="xuw-cat-pill" href="/collections/barrier-film-covers">
+      <span class="xuw-cat-pill__dot" aria-hidden="true"></span>Hygiene
     </a>
   </div>
 </section>
@@ -251,25 +246,28 @@
 </section>
 {%- endif -%}
 
-{%- comment %} Section 5: Needle-Type Strip {% endcomment %}
+{%- comment %} Section 5: Needle-Type Strip — schema needle_product blocks (V5) {% endcomment %}
+{%- assign needle_blocks = section.blocks | where: 'type', 'needle_product' -%}
+{%- if needle_blocks.size > 0 -%}
 <section class="xuw-section--hp" aria-label="Shop by needle type">
   <h2 class="xuw-section__heading">{{ section.settings.needle_strip_heading | default: 'Shop by Needle Type' }}</h2>
   <div class="xuw-grid xuw-grid--5col">
-    {%- assign needle_collections = 'magnum-needles,round-liner-needles,soft-edge-magnum-needles,round-shader-needles,specialty-needles' | split: ',' -%}
-    {%- for nc_handle in needle_collections -%}
-      {%- assign nc = collections[nc_handle] -%}
-      {%- if nc != blank -%}
-        <a class="xuw-cat-tile xuw-cat-tile--needle" href="{{ nc.url }}">
-          {%- if nc.image -%}
-            <img class="xuw-cat-tile__img" src="{{ nc.image | image_url: width: 300 }}" alt="{{ nc.title | escape }}" width="300" loading="lazy">
+    {%- for block in needle_blocks -%}
+      {%- assign np = block.settings.product -%}
+      {%- if np != blank -%}
+        <a class="xuw-cat-tile xuw-cat-tile--needle" href="{{ np.url }}" {{ block.shopify_attributes }}>
+          {%- if np.featured_media -%}
+            <img class="xuw-cat-tile__img"
+              src="{{ np.featured_media | image_url: width: 300 }}"
+              alt="{{ np.title | escape }}" width="300" loading="lazy">
           {%- endif -%}
-          <span class="xuw-cat-tile__label">{{ nc.title }}</span>
-          <span class="xuw-cat-tile__count">{{ nc.products_count }} products</span>
+          <span class="xuw-cat-tile__label">{{ block.settings.label | default: np.title }}</span>
         </a>
       {%- endif -%}
     {%- endfor -%}
   </div>
 </section>
+{%- endif -%}
 
 {%- else -%}
 
@@ -873,6 +871,15 @@
         { "type": "text",         "id": "brand_name", "label": "Brand name" },
         { "type": "image_picker", "id": "brand_logo", "label": "Brand logo" },
         { "type": "url",          "id": "brand_url",  "label": "Collection URL" }
+      ]
+    },
+    {
+      "type": "needle_product",
+      "name": "Needle Product",
+      "limit": 8,
+      "settings": [
+        { "type": "product", "id": "product", "label": "Product" },
+        { "type": "text",    "id": "label",   "label": "Card label (override product title)" }
       ]
     }
   ],
