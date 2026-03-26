@@ -221,27 +221,31 @@
         <aside class="xuw-cart-aside" aria-label="Cart summary">
           <div class="xuw-cart-summary">
 
-            {%- comment %} Subtotal row {% endcomment %}
-            <div class="xuw-cart-summary__row">
-              <span>{{ section.settings.subtotal_label | default: 'Subtotal' }}</span>
-              <span id="xuwCartSubtotal">{{ cart.total_price | money }}</span>
-            </div>
+            <div class="xuw-cart-summary__rows">
 
-            {%- comment %} Discount rows (if any) {% endcomment %}
-            {%- if cart.cart_level_discount_applications.size > 0 -%}
-              {%- for discount in cart.cart_level_discount_applications -%}
-                <div class="xuw-cart-summary__row" style="color:var(--xuw-gold)">
-                  <span>{{ discount.title }}</span>
-                  <span>-{{ discount.total_allocated_amount | money }}</span>
-                </div>
-              {%- endfor -%}
-            {%- endif -%}
+              {%- comment %} Subtotal row {% endcomment %}
+              <div class="xuw-cart-summary__row">
+                <span>{{ section.settings.subtotal_label | default: 'Subtotal' }}</span>
+                <span id="xuwCartSubtotal">{{ cart.total_price | money }}</span>
+              </div>
 
-            {%- comment %} Total row {% endcomment %}
-            <div class="xuw-cart-summary__row xuw-cart-summary__row--total">
-              <span class="xuw-cart-summary__label--total">{{ section.settings.total_label | default: 'Total' }}</span>
-              <span class="xuw-cart-summary__value--total" id="xuwCartTotal">{{ cart.total_price | money }}</span>
-            </div>
+              {%- comment %} Discount rows (if any) {% endcomment %}
+              {%- if cart.cart_level_discount_applications.size > 0 -%}
+                {%- for discount in cart.cart_level_discount_applications -%}
+                  <div class="xuw-cart-summary__row" style="color:var(--xuw-gold)">
+                    <span>{{ discount.title }}</span>
+                    <span>-{{ discount.total_allocated_amount | money }}</span>
+                  </div>
+                {%- endfor -%}
+              {%- endif -%}
+
+              {%- comment %} Total row {% endcomment %}
+              <div class="xuw-cart-summary__row xuw-cart-summary__row--total">
+                <span class="xuw-cart-summary__label--total">{{ section.settings.total_label | default: 'Total' }}</span>
+                <span class="xuw-cart-summary__value--total" id="xuwCartTotal">{{ cart.total_price | money }}</span>
+              </div>
+
+            </div><!-- /.xuw-cart-summary__rows -->
 
             <p style="font-size:11px;color:var(--xuw-muted);margin:10px 0 16px;line-height:1.5">
               {{ section.settings.tax_note | default: 'Tax included. Shipping calculated at checkout.' }}
