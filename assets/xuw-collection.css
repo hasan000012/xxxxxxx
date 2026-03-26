@@ -301,6 +301,10 @@
 .xuw-ws-btn + .xuw-ws-btn { border-left:1px solid var(--xuw-border); }
 .xuw-ws-btn.is-active { background:var(--xuw-crimson); color:#fff; }
 .xuw-ws-btn:not(.is-active):hover { color:var(--xuw-gold); }
+/* BUG-FIX: Wholesale sidebar pill must always be visible (not #666 on dark bg).
+   Previous fix targeted .xuw-mode-btn (card buttons) — wrong class. This is correct. */
+.xuw-ws-btn[data-mode="wholesale"]:not(.is-active) { color:rgba(212,175,55,.75); }
+.xuw-ws-btn[data-mode="wholesale"]:not(.is-active):hover { color:var(--xuw-gold); }
 .xuw-ws-note { font-size:11px; color:#555; margin:0; line-height:1.4; }
 
 .xuw-price-range { padding:6px 0 2px; }

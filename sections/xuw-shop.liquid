@@ -65,6 +65,10 @@
     --xuw-black   : {{ c_bg }};
     --xuw-white   : {{ c_text }};
   }
+  {%- unless enable_filtering -%}
+  /* BUG-FIX: no sidebar — collapse grid to single column */
+  #xuw-shop-{{ section.id }} { grid-template-columns: 1fr !important; }
+  {%- endunless -%}
 </style>
 
 {%- comment %} ── MONEY FORMAT (needed by xuw-collection.js) ── {% endcomment %}
@@ -79,7 +83,12 @@
      Also acts as drawer trigger for S14 on all breakpoints.
   {% endcomment %}
   {%- if enable_filtering -%}
-  <button class="xuw-filter-mobile-btn" id="xuwFilterMobileBtn"
+  {%- comment %}
+  BUG-FIX: Use .xuw-shop__drawer-btn (from xuw-shop-styles.css) NOT .xuw-filter-mobile-btn.
+  xuw-shop-styles.css @639px breakpoint shows .xuw-shop__drawer-btn; it also shows for S14.
+  grid-column:1/-1 rule in xuw-shop-styles.css keeps it spanning the full width.
+  {% endcomment %}
+  <button class="xuw-shop__drawer-btn" id="xuwFilterMobileBtn"
     data-action="toggle-sidebar"
     aria-expanded="false"
     aria-controls="xuwSidebar"

@@ -28,7 +28,9 @@
 .xuw-shop__sort { background:var(--xuw-surface); border:1px solid var(--xuw-border); color:var(--xuw-white); font-size:12px; padding:9px 12px; cursor:pointer; outline:none; transition:border-color var(--xuw-t); }
 .xuw-shop__sort:hover { border-color:var(--xuw-crimson); }
 
-/* Drawer toggle button (visible for s14 only, hidden otherwise) */
+/* Drawer toggle button (visible for s14 + all breakpoints ≤639px) */
+/* BUG-FIX: span full grid width so it doesn't squash into the 240px sidebar column */
+.xuw-shop > .xuw-shop__drawer-btn { grid-column: 1 / -1; }
 .xuw-shop__drawer-btn { display:none; align-items:center; gap:8px; background:var(--xuw-surface); border:1px solid var(--xuw-border); color:var(--xuw-white); font-size:12px; font-weight:600; letter-spacing:1.5px; text-transform:uppercase; padding:10px 16px; cursor:pointer; transition:all var(--xuw-t); }
 .xuw-shop__drawer-btn:hover { border-color:var(--xuw-crimson); color:var(--xuw-gold); }
 .xuw-shop--s14 .xuw-shop__drawer-btn { display:inline-flex; }
@@ -216,7 +218,9 @@
 .xuw-filter--s14 .xuw-filter-section__head { background:var(--xuw-crimson); position:sticky; top:0; z-index:2; }
 .xuw-filter--s14 .xuw-filter-section__title { color:#fff; }
 .xuw-filter--s14 .xuw-filter-section__clear { border-color:rgba(255,255,255,.35); color:rgba(255,255,255,.7); }
-.xuw-filter-drawer-close { position:absolute; right:12px; top:50%; transform:translateY(-50%); background:none; border:none; color:#fff; font-size:22px; cursor:pointer; line-height:1; padding:4px; }
+/* BUG-FIX: hidden by default; only shown inside S14 drawer */
+.xuw-filter-drawer-close { display:none; position:absolute; right:12px; top:50%; transform:translateY(-50%); background:none; border:none; color:#fff; font-size:22px; cursor:pointer; line-height:1; padding:4px; }
+.xuw-filter--s14 .xuw-filter-drawer-close { display:block; }
 
 /* S15 — Tag Cloud */
 .xuw-filter--s15 { background:var(--xuw-surface); border-right:1px solid var(--xuw-border); }

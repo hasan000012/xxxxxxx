@@ -305,7 +305,10 @@
   /* ── Format money using shop's money_format ── */
   function _fmt(cents) {
     var fmtEl = document.getElementById('xuw-money-fmt');
-    var fmt   = fmtEl ? fmtEl.getAttribute('data-fmt') : '{{amount}} EUR';
+    /* BUG-FIX: '{{amount}}' fallback was being processed by Liquid → became ' EUR'.
+       fmtEl is always present (same section renders it), so fallback is dead code.
+       Using empty string is safe; real format always comes from the data-fmt attribute. */
+    var fmt   = fmtEl ? fmtEl.getAttribute('data-fmt') : '';
     var units = (cents / 100).toFixed(2);
     return fmt
       .replace('{{amount}}', units)
