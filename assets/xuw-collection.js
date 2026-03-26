@@ -531,8 +531,8 @@
       card.classList.toggle('xuw-is-hidden', !show);
       if (show) visible++;
     });
-    var countEl = id('xuw-visible-count');
-    if (countEl) countEl.textContent = visible;
+    var countEl = id('xuw-visible-count');  if (countEl)  countEl.textContent  = visible;
+    var countEl2 = id('xuw-browse-total'); if (countEl2) countEl2.textContent = visible;
   }
 
   function _cardMatchesFilter(card) {
@@ -560,7 +560,8 @@
 
   function _updateVisibleCount() {
     var visible = document.querySelectorAll('.xuw-card:not(.xuw-is-hidden)').length;
-    var el = id('xuw-visible-count'); if (el) el.textContent = visible;
+    var el = id('xuw-visible-count');    if (el) el.textContent = visible;
+    var el2 = id('xuw-browse-total');   if (el2) el2.textContent = visible;
   }
 
   function _updateClearBtn() {

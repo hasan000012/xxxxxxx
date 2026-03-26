@@ -304,6 +304,58 @@
 </section>
 {%- endif -%}
 
+{%- comment %}
+  ══ HOMEPAGE BROWSE GRID ══════════════════════════════════════════════════
+  THIS IS WHAT FEEDS THE FILTER BAR.
+  _buildFilterBar() scans .xuw-card elements — without this grid, zero cards
+  exist on the homepage and the filter bar stays empty.
+  Uses `col` (resolves to collections.all on homepage by default, or
+  whatever collection is set in section.settings.collection).
+  Paginated at hp_products_per_page (default 24).
+  The sticky filter bar above filters these cards in real-time via JS.
+  ══════════════════════════════════════════════════════════════════════════
+{% endcomment %}
+{%- assign hp_per_page = section.settings.hp_products_per_page | default: 24 -%}
+{%- paginate col.products by hp_per_page -%}
+<section class="xuw-section--hp xuw-hp-browse" aria-label="Browse all products">
+  <div class="xuw-hp-browse__header">
+    <h2 class="xuw-section__heading">{{ section.settings.browse_heading | default: 'All Products' }}</h2>
+    <p class="xuw-hp-browse__count">
+      <span id="xuw-browse-total">{{ col.products_count }}</span> products
+    </p>
+  </div>
+  <div class="xuw-product-grid" id="xuwHpGrid">
+    {%- for product in col.products -%}
+      {%- render 'xuw-product-card', product: product, show_vendor: show_vendor -%}
+    {%- else -%}
+      <div class="xuw-empty">
+        <div class="xuw-empty__icon" aria-hidden="true">&#128269;</div>
+        <p>No products found.</p>
+      </div>
+    {%- endfor -%}
+  </div>
+  {%- if paginate.pages > 1 -%}
+    <nav class="xuw-pagination" aria-label="Product pages" style="padding:24px 0">
+      {%- if paginate.previous -%}
+        <a class="xuw-pg-btn" href="{{ paginate.previous.url }}" aria-label="Previous">&#8592;</a>
+      {%- endif -%}
+      {%- for part in paginate.parts -%}
+        {%- if part.is_link -%}
+          <a class="xuw-pg-btn" href="{{ part.url }}">{{ part.title }}</a>
+        {%- elsif part.title == paginate.current_page -%}
+          <span class="xuw-pg-btn is-active" aria-current="page">{{ part.title }}</span>
+        {%- else -%}
+          <span class="xuw-pg-btn xuw-pg-dots">{{ part.title }}</span>
+        {%- endif -%}
+      {%- endfor -%}
+      {%- if paginate.next -%}
+        <a class="xuw-pg-btn" href="{{ paginate.next.url }}" aria-label="Next">&#8594;</a>
+      {%- endif -%}
+    </nav>
+  {%- endif -%}
+</section>
+{%- endpaginate -%}
+
 {%- else -%}
 
 {%- comment %} ══ SHOP WRAPPER ══ {% endcomment %}
@@ -746,7 +798,10 @@
     { "type": "text",       "id": "featured_heading",     "label": "Featured section heading", "default": "Featured Products" },
     { "type": "collection", "id": "featured_collection",  "label": "Featured collection" },
     { "type": "text",       "id": "brands_heading",       "label": "Brands section heading",   "default": "Our Brands" },
-    { "type": "text",       "id": "needle_strip_heading", "label": "Needle strip heading",     "default": "Shop by Needle Type" }
+    { "type": "text",       "id": "needle_strip_heading", "label": "Needle strip heading",     "default": "Shop by Needle Type" },
+    { "type": "header",     "content": "Homepage Browse Grid (feeds filter bar)" },
+    { "type": "text",       "id": "browse_heading",         "label": "Browse grid heading",    "default": "All Products" },
+    { "type": "range",      "id": "hp_products_per_page",   "label": "Products per page",      "min": 12, "max": 48, "step": 4, "default": 24 }
   ],
   "blocks": [
     {

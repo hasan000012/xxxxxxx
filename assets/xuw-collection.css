@@ -182,6 +182,17 @@
   display: inline-block;
 }
 
+/* ── V6 HOMEPAGE BROWSE GRID ── */
+.xuw-hp-browse { padding-top: 0 !important; }
+.xuw-hp-browse__header { display:flex; align-items:center; justify-content:space-between; margin-bottom:20px; flex-wrap:wrap; gap:8px; }
+.xuw-hp-browse__count { font-size:13px; color:var(--xuw-muted); margin:0; }
+/* Pagination shared between homepage browse and collection page */
+.xuw-pagination { display:flex; gap:6px; justify-content:center; flex-wrap:wrap; margin-top:24px; }
+.xuw-pg-btn { display:inline-flex; align-items:center; justify-content:center; min-width:36px; height:36px; padding:0 10px; border-radius:4px; border:1px solid var(--xuw-border); background:transparent; color:var(--xuw-muted); font-size:13px; text-decoration:none; cursor:pointer; transition:all var(--xuw-t); }
+.xuw-pg-btn:hover { border-color:var(--xuw-crimson); color:var(--xuw-white); }
+.xuw-pg-btn.is-active { background:var(--xuw-crimson); border-color:var(--xuw-crimson); color:var(--xuw-white); cursor:default; }
+.xuw-pg-dots { pointer-events:none; border-color:transparent; }
+
 /* ── V6 INLINE FILTER BAR (homepage) ── */
 /* RISK-3 MITIGATION: top offset accounts for Horizon header.
    Horizon typically sets --header-group-height or --header-height.
