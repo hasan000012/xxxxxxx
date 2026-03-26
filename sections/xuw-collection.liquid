@@ -2,7 +2,19 @@
 ================================================================================
   X UNDER WORLD — Collection Section
   File    : sections/xuw-collection.liquid
-  Version : 9.0
+  Version : 10.0 (V6 spec)
+
+  V10 CHANGES:
+  ─────────────────────────────────────────────────────────────────────────────
+  V6-1  — Homepage inline filter bar (#xuw-filter-bar). JS (_buildFilterBar)
+            scans .xuw-card elements and populates pills dynamically at runtime.
+            No hardcoded filter labels in HTML.
+  V6-2  — Dynamic collection nav from linklists['shop-categories'].
+            RISK-2 mitigation: if menu not configured, loop produces nothing
+            (no Liquid error, no broken UI). Hardcoded 84-link block removed.
+  V6-3  — #xuw-cart-ws-tier div added. JS (_refreshCartWsDisplay) writes
+            tier progress message on every xuw:cart-updated event.
+================================================================================
 
   V9 FIXES (from screenshot + requirements):
   ─────────────────────────────────────────────────────────────────────────────
@@ -65,6 +77,9 @@
 </style>
 {%- comment %} CSS + JS now loaded globally via snippets/xuw-global.liquid {% endcomment %}
 <span id="xuw-money-fmt" data-fmt="{{ shop.money_format }}" style="display:none" aria-hidden="true"></span>
+
+{%- comment %} V6: Cart WS tier progress bar — JS (_refreshCartWsDisplay) writes content and shows/hides {% endcomment %}
+<div id="xuw-cart-ws-tier" class="xuw-cart-ws-tier" style="display:none" aria-live="polite" aria-atomic="true"></div>
 
 {%- comment %} ══ 4-SLIDE HERO CAROUSEL ══ {% endcomment %}
 {%- if show_hero -%}
@@ -180,7 +195,27 @@
 {%- comment %} ══ HOMEPAGE SECTIONS ══ {% endcomment %}
 {%- if is_homepage -%}
 
-{%- comment %} Section 2: Quick-Category Pill Row (V5) {% endcomment %}
+{%- comment %}
+  V6: Inline filter bar — HTML skeleton only. JS (_buildFilterBar) runs on
+  DOMContentLoaded, scans .xuw-card elements, and populates #xuw-filter-groups
+  with pills for needle-type, pin-count, vendor, availability, and mode.
+  RISK-3 mitigation: top offset uses Horizon's own CSS custom properties —
+  see .xuw-filter-bar rule in xuw-collection.css.
+{% endcomment %}
+<div id="xuw-filter-bar" class="xuw-filter-bar" role="region" aria-label="Product filters">
+  <div class="xuw-filter-bar__inner">
+    <div id="xuw-filter-groups" class="xuw-filter-groups"></div>
+    <button class="xuw-filter-clear xuw-is-hidden"
+            data-action="filter-clear"
+            type="button"
+            aria-label="Clear all filters">Clear all</button>
+  </div>
+  <div class="xuw-filter-bar__count" aria-live="polite" aria-atomic="true">
+    <span id="xuw-visible-count"></span> products
+  </div>
+</div>
+
+{%- comment %} Section 2: Quick-Category Pill Row — navigation strip, kept in V6 {% endcomment %}
 <section class="xuw-section--hp" aria-label="Shop by category">
   <h2 class="xuw-section__heading">{{ section.settings.cat_strip_heading | default: 'Shop by Category' }}</h2>
   <div class="xuw-pill-row">
@@ -318,206 +353,57 @@
     </div>
 
     {%- comment %}
-    ── CATEGORY NAVIGATION TREE ──
-    Source: File1_Category_Map.xlsx
-    13 parent categories → 84 subcollections with direct links.
-    FIX: No checkboxes. Links navigate directly to the subcollection page.
-    FIX: No emoji icons. No hardcoded translation keys.
-    FIX: Dynamic — if current page is inside a category, that branch is open.
+    ── V6 DYNAMIC CATEGORY NAV ──────────────────────────────────────────────
+    Reads from linklists['shop-categories'] (Shopify Admin → Navigation).
+    RISK-2 mitigation: if menu handle is not configured or has no links, the
+    for-loop produces nothing — no Liquid error, no broken sidebar.
+    Each top-level link may have nested sub-links (2-level accordion).
+    Active branch auto-opens based on current collection.handle match.
+    ─────────────────────────────────────────────────────────────────────────
     {% endcomment %}
-
-    {%- comment %} Magic Moon Needles {% endcomment %}
-    <div class="xuw-filter-group xuw-cat-group">
-      <button class="xuw-filter-group__head" data-action="toggle-group"
-        aria-expanded="{% if collection.handle contains 'needles' %}true{% else %}false{% endif %}" type="button">
-        <span>Magic Moon Needles</span>
-        <svg class="xuw-chevron {% unless collection.handle contains 'needles' %}xuw-chevron--closed{% endunless %}" width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-      </button>
-      <div class="xuw-cat-links" {% unless collection.handle contains 'needles' %}style="display:none"{% endunless %}>
-        <a href="/collections/magnum-needles"           class="xuw-cat-link {% if collection.handle == 'magnum-needles' %}is-active{% endif %}">Magnum Needles <span>28</span></a>
-        <a href="/collections/round-liner-needles"      class="xuw-cat-link {% if collection.handle == 'round-liner-needles' %}is-active{% endif %}">Round Liner Needles <span>72</span></a>
-        <a href="/collections/round-shader-needles"     class="xuw-cat-link {% if collection.handle == 'round-shader-needles' %}is-active{% endif %}">Round Shader Needles <span>18</span></a>
-        <a href="/collections/soft-edge-magnum-needles" class="xuw-cat-link {% if collection.handle == 'soft-edge-magnum-needles' %}is-active{% endif %}">Soft Edge Magnum Needles <span>22</span></a>
-        <a href="/collections/specialty-needles"        class="xuw-cat-link {% if collection.handle == 'specialty-needles' %}is-active{% endif %}">Specialty Needles <span>2</span></a>
+    {%- for link in linklists['shop-categories'].links -%}
+      {%- comment %} Determine if this branch should be open {% endcomment %}
+      {%- assign branch_open = false -%}
+      {%- if collection != blank -%}
+        {%- if link.url contains collection.handle -%}
+          {%- assign branch_open = true -%}
+        {%- endif -%}
+        {%- for sub in link.links -%}
+          {%- if sub.url contains collection.handle -%}
+            {%- assign branch_open = true -%}
+          {%- endif -%}
+        {%- endfor -%}
+      {%- endif -%}
+      <div class="xuw-filter-group xuw-cat-group">
+        <button class="xuw-filter-group__head" data-action="toggle-group"
+          aria-expanded="{{ branch_open }}" type="button">
+          <span>{{ link.title }}</span>
+          <svg class="xuw-chevron{% unless branch_open %} xuw-chevron--closed{% endunless %}"
+            width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+            <path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+        </button>
+        <div class="xuw-cat-links"{% unless branch_open %} style="display:none"{% endunless %}>
+          {%- if link.links.size > 0 -%}
+            {%- for sub in link.links -%}
+              {%- assign sub_active = false -%}
+              {%- if collection != blank and sub.url contains collection.handle -%}
+                {%- assign sub_active = true -%}
+              {%- endif -%}
+              <a href="{{ sub.url }}"
+                class="xuw-cat-link{% if sub_active %} is-active{% endif %}">{{ sub.title }}</a>
+            {%- endfor -%}
+          {%- else -%}
+            {%- assign top_active = false -%}
+            {%- if collection != blank and link.url contains collection.handle -%}
+              {%- assign top_active = true -%}
+            {%- endif -%}
+            <a href="{{ link.url }}"
+              class="xuw-cat-link{% if top_active %} is-active{% endif %}">{{ link.title }}</a>
+          {%- endif -%}
+        </div>
       </div>
-    </div>
-
-    {%- comment %} Magic Moon Cartridges {% endcomment %}
-    <div class="xuw-filter-group xuw-cat-group">
-      <button class="xuw-filter-group__head" data-action="toggle-group"
-        aria-expanded="{% if collection.handle contains 'cartridges' and collection.handle contains 'moon' %}true{% elsif collection.handle contains 'biodegradable' or collection.handle contains 'comfort' or collection.handle contains 'slim-line' %}true{% else %}false{% endif %}" type="button">
-        <span>Magic Moon Cartridges</span>
-        <svg class="xuw-chevron xuw-chevron--closed" width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-      </button>
-      <div class="xuw-cat-links" style="display:none">
-        <p class="xuw-cat-links__group">Biodegradable</p>
-        <a href="/collections/biodegradable-cartridges-magnum"           class="xuw-cat-link {% if collection.handle == 'biodegradable-cartridges-magnum' %}is-active{% endif %}">Magnum <span>22</span></a>
-        <a href="/collections/biodegradable-cartridges-round-liner"      class="xuw-cat-link {% if collection.handle == 'biodegradable-cartridges-round-liner' %}is-active{% endif %}">Round Liner <span>58</span></a>
-        <a href="/collections/biodegradable-cartridges-round-shader"     class="xuw-cat-link {% if collection.handle == 'biodegradable-cartridges-round-shader' %}is-active{% endif %}">Round Shader <span>22</span></a>
-        <a href="/collections/biodegradable-cartridges-soft-edge-magnum" class="xuw-cat-link {% if collection.handle == 'biodegradable-cartridges-soft-edge-magnum' %}is-active{% endif %}">Soft Edge Magnum <span>46</span></a>
-        <p class="xuw-cat-links__group">Comfort</p>
-        <a href="/collections/comfort-cartridges-diamond"       class="xuw-cat-link">Diamond <span>11</span></a>
-        <a href="/collections/comfort-cartridges-magnum"        class="xuw-cat-link">Magnum <span>13</span></a>
-        <a href="/collections/comfort-cartridges-round-liner"   class="xuw-cat-link">Round Liner <span>35</span></a>
-        <a href="/collections/comfort-cartridges-round-shader"  class="xuw-cat-link">Round Shader <span>14</span></a>
-        <a href="/collections/comfort-cartridges-soft-edge-magnum" class="xuw-cat-link">Soft Edge Magnum <span>24</span></a>
-        <p class="xuw-cat-links__group">Needle Cartridges</p>
-        <a href="/collections/needle-cartridges-diamond"        class="xuw-cat-link">Diamond <span>23</span></a>
-        <a href="/collections/needle-cartridges-magnum"         class="xuw-cat-link">Magnum <span>26</span></a>
-        <a href="/collections/needle-cartridges-round-liner"    class="xuw-cat-link">Round Liner <span>54</span></a>
-        <a href="/collections/needle-cartridges-round-shader"   class="xuw-cat-link">Round Shader <span>34</span></a>
-        <a href="/collections/needle-cartridges-soft-edge-magnum" class="xuw-cat-link">Soft Edge Magnum <span>43</span></a>
-        <p class="xuw-cat-links__group">Slim Line</p>
-        <a href="/collections/slim-line-cartridges-round-liner"  class="xuw-cat-link">Round Liner <span>32</span></a>
-        <a href="/collections/slim-line-cartridges-round-shader" class="xuw-cat-link">Round Shader <span>11</span></a>
-      </div>
-    </div>
-
-    {%- comment %} Cartridges by Brand {% endcomment %}
-    <div class="xuw-filter-group xuw-cat-group">
-      <button class="xuw-filter-group__head" data-action="toggle-group"
-        aria-expanded="{% if collection.handle contains 'kwadron' or collection.handle contains 'lunar-pmu' %}true{% else %}false{% endif %}" type="button">
-        <span>Cartridges by Brand</span>
-        <svg class="xuw-chevron xuw-chevron--closed" width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-      </button>
-      <div class="xuw-cat-links" style="display:none">
-        <p class="xuw-cat-links__group">Kwadron</p>
-        <a href="/collections/kwadron-cartridges-magnum"           class="xuw-cat-link">Magnum <span>10</span></a>
-        <a href="/collections/kwadron-cartridges-round-liner"      class="xuw-cat-link">Round Liner <span>30</span></a>
-        <a href="/collections/kwadron-cartridges-round-shader"     class="xuw-cat-link">Round Shader <span>11</span></a>
-        <a href="/collections/kwadron-cartridges-soft-edge-magnum" class="xuw-cat-link">Soft Edge Magnum <span>26</span></a>
-        <p class="xuw-cat-links__group">Lunar PMU</p>
-        <a href="/collections/lunar-pmu-cartridges-magnum"           class="xuw-cat-link">Magnum <span>9</span></a>
-        <a href="/collections/lunar-pmu-cartridges-round-liner"      class="xuw-cat-link">Round Liner <span>22</span></a>
-        <a href="/collections/lunar-pmu-cartridges-round-shader"     class="xuw-cat-link">Round Shader <span>12</span></a>
-        <a href="/collections/lunar-pmu-cartridges-slope-magnum"     class="xuw-cat-link">Slope Magnum <span>9</span></a>
-        <a href="/collections/lunar-pmu-cartridges-soft-edge-magnum" class="xuw-cat-link">Soft Edge Magnum <span>9</span></a>
-      </div>
-    </div>
-
-    {%- comment %} Tattoo Machines {% endcomment %}
-    <div class="xuw-filter-group xuw-cat-group">
-      <button class="xuw-filter-group__head" data-action="toggle-group"
-        aria-expanded="{% if collection.handle contains 'machine' or collection.handle contains 'power' or collection.handle contains 'grip' or collection.handle contains 'cable' %}true{% else %}false{% endif %}" type="button">
-        <span>Tattoo Machines</span>
-        <svg class="xuw-chevron xuw-chevron--closed" width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-      </button>
-      <div class="xuw-cat-links" style="display:none">
-        <a href="/collections/cheyenne-tattoo-machines"       class="xuw-cat-link">Cheyenne Tattoo Machines <span>10</span></a>
-        <a href="/collections/critical-tattoo-machines"       class="xuw-cat-link">Critical Tattoo Machines <span>3</span></a>
-        <a href="/collections/equaliser-tattoo-pens"          class="xuw-cat-link">Equaliser Tattoo Pens <span>7</span></a>
-        <a href="/collections/fk-irons-spektra-machines"      class="xuw-cat-link">FK Irons &amp; Spektra <span>19</span></a>
-        <a href="/collections/inkjecta-machines"              class="xuw-cat-link">InkJecta Machines <span>5</span></a>
-        <a href="/collections/inklab-tattoo-pens"             class="xuw-cat-link">Inklab Tattoo Pens <span>2</span></a>
-        <a href="/collections/legend-tattoo-pens"             class="xuw-cat-link">Legend Tattoo Pens <span>6</span></a>
-        <a href="/collections/neuma-tattoo-pens"              class="xuw-cat-link">Neuma Tattoo Pens <span>12</span></a>
-        <a href="/collections/rotary-tattoo-machines-pens"    class="xuw-cat-link">Rotary Machines &amp; Pens <span>9</span></a>
-        <a href="/collections/shagbuilt-machines"             class="xuw-cat-link">Shagbuilt Machines <span>7</span></a>
-        <a href="/collections/artdriver-machines"             class="xuw-cat-link">ArtDriver Machines <span>1</span></a>
-        <a href="/collections/pmu-machines-sets"              class="xuw-cat-link">PMU Machines &amp; Sets <span>1</span></a>
-        <a href="/collections/cheyenne-grips-accessories"     class="xuw-cat-link">Cheyenne Grips &amp; Accessories <span>98</span></a>
-        <a href="/collections/neuma-grips-accessories"        class="xuw-cat-link">Neuma Grips &amp; Accessories <span>14</span></a>
-        <a href="/collections/grips-tubes"                    class="xuw-cat-link">Grips &amp; Tubes <span>25</span></a>
-        <a href="/collections/machine-parts-accessories"      class="xuw-cat-link">Machine Parts &amp; Accessories <span>20</span></a>
-        <a href="/collections/cables-cords-footswitches"      class="xuw-cat-link">Cables, Cords &amp; Footswitches <span>13</span></a>
-        <a href="/collections/critical-power-supplies-batteries" class="xuw-cat-link">Critical Power &amp; Batteries <span>28</span></a>
-        <a href="/collections/musotoku-power-supplies"        class="xuw-cat-link">Musotoku Power Supplies <span>13</span></a>
-        <a href="/collections/power-supplies-control-units"   class="xuw-cat-link">Power Supplies &amp; Control Units <span>4</span></a>
-      </div>
-    </div>
-
-    {%- comment %} Tattoo Inks {% endcomment %}
-    <div class="xuw-filter-group xuw-cat-group">
-      <button class="xuw-filter-group__head" data-action="toggle-group"
-        aria-expanded="{% if collection.handle contains 'inks' or collection.handle contains 'ink' and collection.handle contains 'tattoo' %}true{% else %}false{% endif %}" type="button">
-        <span>Tattoo Inks</span>
-        <svg class="xuw-chevron xuw-chevron--closed" width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-      </button>
-      <div class="xuw-cat-links" style="display:none">
-        <a href="/collections/world-famous-limitless-inks"  class="xuw-cat-link">World Famous Limitless <span>96</span></a>
-        <a href="/collections/kuro-sumi-imperial-inks"      class="xuw-cat-link">Kuro Sumi Imperial <span>53</span></a>
-        <a href="/collections/intenze-tattoo-inks"          class="xuw-cat-link">Intenze <span>41</span></a>
-        <a href="/collections/perma-blend-luxe-pmu-inks"    class="xuw-cat-link">Perma Blend Luxe PMU <span>35</span></a>
-        <a href="/collections/i-am-ink-inks"                class="xuw-cat-link">I AM INK <span>31</span></a>
-        <a href="/collections/panthera-black-inks"          class="xuw-cat-link">Panthera Black <span>5</span></a>
-        <a href="/collections/polybius-inks"                class="xuw-cat-link">Polybius <span>5</span></a>
-        <a href="/collections/apex-eternal-inks"            class="xuw-cat-link">Apex Eternal <span>4</span></a>
-        <a href="/collections/dynamic-color-inks"           class="xuw-cat-link">Dynamic Color <span>3</span></a>
-        <a href="/collections/talens-drawing-inks"          class="xuw-cat-link">Talens Drawing <span>3</span></a>
-        <a href="/collections/kwadron-inks"                 class="xuw-cat-link">Kwadron <span>2</span></a>
-        <a href="/collections/eclipse-tattoo-inks"          class="xuw-cat-link">Eclipse <span>1</span></a>
-      </div>
-    </div>
-
-    {%- comment %} Hygiene & Safety {% endcomment %}
-    <div class="xuw-filter-group xuw-cat-group">
-      <button class="xuw-filter-group__head" data-action="toggle-group"
-        aria-expanded="{% if collection.handle contains 'barrier' or collection.handle contains 'glove' or collection.handle contains 'disinfect' or collection.handle contains 'skin-prep' %}true{% else %}false{% endif %}" type="button">
-        <span>Hygiene &amp; Safety</span>
-        <svg class="xuw-chevron xuw-chevron--closed" width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-      </button>
-      <div class="xuw-cat-links" style="display:none">
-        <a href="/collections/barrier-film-covers"       class="xuw-cat-link">Barrier Film &amp; Covers <span>31</span></a>
-        <a href="/collections/disposable-gloves"         class="xuw-cat-link">Disposable Gloves <span>8</span></a>
-        <a href="/collections/disposal-accessories"      class="xuw-cat-link">Disposal &amp; Accessories <span>4</span></a>
-        <a href="/collections/ink-caps-cups"             class="xuw-cat-link">Ink Caps &amp; Cups <span>17</span></a>
-        <a href="/collections/skin-prep-disinfection"    class="xuw-cat-link">Skin Prep &amp; Disinfection <span>21</span></a>
-        <a href="/collections/surface-skin-disinfection" class="xuw-cat-link">Surface &amp; Skin Disinfection <span>11</span></a>
-      </div>
-    </div>
-
-    {%- comment %} Remaining categories — single subcollection each {% endcomment %}
-    <div class="xuw-filter-group xuw-cat-group">
-      <button class="xuw-filter-group__head" data-action="toggle-group" aria-expanded="false" type="button">
-        <span>Aftercare &amp; Skincare</span>
-        <svg class="xuw-chevron xuw-chevron--closed" width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-      </button>
-      <div class="xuw-cat-links" style="display:none">
-        <a href="/collections/tattoo-aftercare-products" class="xuw-cat-link">Tattoo Aftercare Products <span>41</span></a>
-      </div>
-    </div>
-
-    <div class="xuw-filter-group xuw-cat-group">
-      <button class="xuw-filter-group__head" data-action="toggle-group" aria-expanded="false" type="button">
-        <span>Stencil &amp; Transfer</span>
-        <svg class="xuw-chevron xuw-chevron--closed" width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-      </button>
-      <div class="xuw-cat-links" style="display:none">
-        <a href="/collections/stencil-transfer-paper"     class="xuw-cat-link">Stencil &amp; Transfer Paper <span>6</span></a>
-        <a href="/collections/stencil-liquids-solutions"  class="xuw-cat-link">Stencil Liquids &amp; Solutions <span>11</span></a>
-        <a href="/collections/tattoo-skin-markers"        class="xuw-cat-link">Tattoo Skin Markers <span>22</span></a>
-        <a href="/collections/thermal-copiers-accessories" class="xuw-cat-link">Thermal Copiers &amp; Accessories <span>23</span></a>
-      </div>
-    </div>
-
-    <div class="xuw-filter-group xuw-cat-group">
-      <button class="xuw-filter-group__head" data-action="toggle-group" aria-expanded="false" type="button">
-        <span>Art &amp; Drawing Supplies</span>
-        <svg class="xuw-chevron xuw-chevron--closed" width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-      </button>
-      <div class="xuw-cat-links" style="display:none">
-        <a href="/collections/artist-pencils-markers"  class="xuw-cat-link">Artist Pencils &amp; Markers <span>8</span></a>
-        <a href="/collections/tombow-dual-brush-pens"  class="xuw-cat-link">Tombow Dual Brush Pens <span>29</span></a>
-        <a href="/collections/uni-posca-paint-markers" class="xuw-cat-link">UNI POSCA Paint Markers <span>77</span></a>
-      </div>
-    </div>
-
-    <div class="xuw-filter-group xuw-cat-group">
-      <button class="xuw-filter-group__head" data-action="toggle-group" aria-expanded="false" type="button">
-        <span>More</span>
-        <svg class="xuw-chevron xuw-chevron--closed" width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-      </button>
-      <div class="xuw-cat-links" style="display:none">
-        <a href="/collections/tattoo-sketchbooks-art-books"        class="xuw-cat-link">Art Books &amp; Inspiration <span>37</span></a>
-        <a href="/collections/practice-skins"                      class="xuw-cat-link">Practice Skins <span>5</span></a>
-        <a href="/collections/workshops-courses"                   class="xuw-cat-link">Workshops &amp; Courses <span>6</span></a>
-        <a href="/collections/studio-accessories"                  class="xuw-cat-link">Studio Accessories <span>11</span></a>
-        <a href="/collections/tattoo-workz-furniture-chairs"       class="xuw-cat-link">Furniture &amp; Chairs <span>19</span></a>
-        <a href="/collections/magic-moon-accessories"              class="xuw-cat-link">Magic Moon Accessories <span>103</span></a>
-        <a href="/collections/magic-moon-clothing-merchandise"     class="xuw-cat-link">Clothing &amp; Merchandise <span>11</span></a>
-        <a href="/collections/gift-cards"                          class="xuw-cat-link">Gift Cards <span>1</span></a>
-      </div>
-    </div>
+    {%- endfor -%}
 
     {%- comment %}
     ── PRODUCT ATTRIBUTE FILTERS (tag-based, for collection pages) ──

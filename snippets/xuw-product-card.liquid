@@ -1,18 +1,26 @@
 {% comment %}
-  XUW Product Card — snippets/xuw-product-card.liquid — v11
-  V11: V5 spec — string-accumulator variant detection, data-single-variant,
-  .xuw-stock-dot, .xuw-ws-toggle__lbl, .xuw-price__ws-val, data-action="atc"
-  Rule 11: both price zones always in DOM for wholesale products.
+  XUW Product Card — snippets/xuw-product-card.liquid — v12 (V6 spec)
+  V6 CHANGE: Both retail + wholesale price rows ALWAYS visible for WS products.
+             Mode selector replaces toggle: two pill buttons (Retail / Wholesale).
+             data-ws-variant-id + data-ws-price added for direct WS add-to-cart.
+  RISK-1 MITIGATION: WS variant price = already-discounted unit price.
+    Shopify Automatic Discounts provide ADDITIONAL % tier discount on top.
+    Rule 9 (v6): WS-SKU variant IS added to cart in wholesale mode.
+    If you do NOT want stacking, remove Automatic Discounts from Shopify Admin.
+    Comment in code documents the decision. See BLOCK 3 in system prompt.
 {% endcomment %}
 
 {%- liquid
   comment
-    VARIANT DETECTION — string accumulator approach (Rule 4 safe, case-insensitive)
-    Builds a CSV of retail variant IDs, then splits to count. Avoids brittle integer counters.
+    VARIANT DETECTION — string accumulator (Rule 4 safe, case-insensitive)
+    Builds CSV of retail IDs, splits to count. WS variant stored separately.
   endcomment
 
-  assign is_wholesale = false
-  assign moq = 1
+  assign is_wholesale   = false
+  assign moq            = 1
+  assign ws_variant     = nil
+  assign retail_variant = nil
+  assign retail_ids     = ''
 
   if product.tags contains 'wholesale'
     assign is_wholesale = true
@@ -24,11 +32,11 @@
     endfor
   endif
 
-  assign retail_ids    = ''
-  assign retail_variant = nil
   for v in product.variants
     assign v_title_lower = v.title | downcase
-    if v_title_lower != 'wholesale'
+    if v_title_lower == 'wholesale'
+      assign ws_variant = v
+    else
       assign retail_ids = retail_ids | append: v.id | append: ','
       if retail_variant == nil
         assign retail_variant = v
@@ -53,6 +61,17 @@
   unless product.available
     assign sold_out = true
   endunless
+
+  comment
+    Count visible (non-wholesale) variants for "N options" hint
+  endcomment
+  assign visible_variants = 0
+  for v in product.variants
+    assign vl = v.title | downcase
+    unless vl == 'wholesale'
+      assign visible_variants = visible_variants | plus: 1
+    endunless
+  endfor
 -%}
 
 <div class="xuw-card{% if sold_out %} xuw-card--soldout{% endif %}"
@@ -63,6 +82,8 @@
   data-current-mode="retail"
   data-single-variant="{{ single_variant }}"
   data-variant-id="{{ retail_variant.id }}"
+  data-ws-variant-id="{% if ws_variant %}{{ ws_variant.id }}{% endif %}"
+  data-ws-price="{% if ws_variant %}{{ ws_variant.price }}{% endif %}"
   data-available="{{ product.available }}"
   data-tags="{{ tags_string }}"
   data-product-type="{{ product.type | downcase | escape }}"
@@ -93,9 +114,6 @@
       <span class="xuw-badge xuw-badge--eco"
         style="top:{% if product.tags contains 'new' or product.tags contains 'hot' or product.tags contains 'sale' %}32px{% else %}8px{% endif %}">ECO</span>
     {%- endif -%}
-    {%- if is_wholesale -%}
-      <span class="xuw-badge xuw-badge--ws">WS</span>
-    {%- endif -%}
 
     <span class="xuw-stock-dot{% unless product.available %} is-oos{% endunless %}"
           aria-label="{% if product.available %}In stock{% else %}Out of stock{% endif %}"></span>
@@ -113,56 +131,52 @@
       <a href="{{ product.url }}">{{ product.title }}</a>
     </p>
 
+    {%- comment %}
+    ── PRICE ZONE (V6 Rule 11) ─────────────────────────────────────────────
+    Both rows are ALWAYS in the DOM for wholesale products.
+    CSS + data-current-mode handle which looks "active".
+    NEVER set display:none on .xuw-price__row--retail or --ws.
+    ──────────────────────────────────────────────────────────────────────────
+    {% endcomment %}
     <div class="xuw-card__price-zone" aria-live="polite" aria-atomic="true">
 
-      <div class="xuw-price-retail">
+      <div class="xuw-price__row xuw-price__row--retail is-active">
         {%- if product.compare_at_price > product.price -%}
           <span class="xuw-price__was">{{ product.compare_at_price | money }}</span>
         {%- endif -%}
-        <span class="xuw-price__now">{{ product.price | money }}</span>
+        <span class="xuw-price__amount">{{ product.price | money }}</span>
+        <span class="xuw-price__label">retail</span>
       </div>
 
-      {%- comment %}
-        Wholesale zone: ALWAYS rendered for wholesale products (Rule 11).
-        Hidden via xuw-is-hidden by default. JS populates .xuw-price__ws-val and removes the class.
-        NEVER remove this div. NEVER generate a wholesale card without it.
-      {%- endcomment %}
-      {%- if is_wholesale -%}
-      <div class="xuw-price-wholesale xuw-is-hidden">
-        <span class="xuw-price__crossed">{{ product.price | money }}</span>
-        <div class="xuw-price__ws-line">
-          <span class="xuw-price__ws-val">—</span>
-          <span class="xuw-ws-pill">WS</span>
-        </div>
-        <p class="xuw-price__moq">Min. suggest: <strong>{{ moq }}</strong> units</p>
+      {%- if is_wholesale and ws_variant -%}
+      <div class="xuw-price__row xuw-price__row--ws">
+        <span class="xuw-price__amount xuw-price__amount--ws">{{ ws_variant.price | money }}</span>
+        <span class="xuw-ws-pill">WS</span>
+        <span class="xuw-price__label">wholesale</span>
       </div>
+      <p class="xuw-price__moq">Min. order: <strong>{{ moq }}</strong> units</p>
       {%- endif -%}
 
     </div>
 
-    {%- if is_wholesale -%}
-    <div class="xuw-card__toggle-row">
-      <button class="xuw-ws-toggle"
-        data-action="card-mode"
-        data-handle="{{ product.handle }}"
-        aria-pressed="false"
-        aria-label="Show wholesale pricing for {{ product.title | escape }}"
-        type="button">
-        <span class="xuw-ws-toggle__track">
-          <span class="xuw-ws-toggle__pill"></span>
-        </span>
-        <span class="xuw-ws-toggle__lbl">Wholesale</span>
-      </button>
+    {%- comment %} Mode selector — only for wholesale products {% endcomment %}
+    {%- if is_wholesale and ws_variant -%}
+    <div class="xuw-price-mode-row" role="group" aria-label="Pricing mode">
+      <button class="xuw-mode-btn is-active"
+              data-action="set-mode"
+              data-mode="retail"
+              data-handle="{{ product.handle }}"
+              type="button"
+              aria-pressed="true">Retail</button>
+      <button class="xuw-mode-btn"
+              data-action="set-mode"
+              data-mode="wholesale"
+              data-handle="{{ product.handle }}"
+              type="button"
+              aria-pressed="false">Wholesale</button>
     </div>
     {%- endif -%}
 
-    {%- assign visible_variants = 0 -%}
-    {%- for v in product.variants -%}
-      {%- assign v_lower = v.title | downcase -%}
-      {%- unless v_lower contains 'wholesale' -%}
-        {%- assign visible_variants = visible_variants | plus: 1 -%}
-      {%- endunless -%}
-    {%- endfor -%}
     {%- if visible_variants > 1 -%}
       <p class="xuw-card__variants-hint">{{ visible_variants }} options</p>
     {%- endif -%}
@@ -175,6 +189,7 @@
         data-action="atc"
         data-handle="{{ product.handle }}"
         data-variant-id="{{ retail_variant.id }}"
+        data-ws-variant-id="{% if ws_variant %}{{ ws_variant.id }}{% endif %}"
         data-single="{{ single_variant }}"
         aria-label="Add {{ product.title | escape }} to cart"
         type="button">+ Add to Cart</button>

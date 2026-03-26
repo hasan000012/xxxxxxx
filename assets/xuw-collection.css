@@ -182,6 +182,52 @@
   display: inline-block;
 }
 
+/* ── V6 INLINE FILTER BAR (homepage) ── */
+/* RISK-3 MITIGATION: top offset accounts for Horizon header.
+   Horizon typically sets --header-group-height or --header-height.
+   Fallback to 60px if neither is defined. Adjust to match your theme. */
+.xuw-filter-bar {
+  position: sticky;
+  top: var(--header-group-height, var(--header-height, 60px));
+  z-index: 100;
+  background: var(--xuw-surface);
+  border-bottom: 1px solid var(--xuw-border);
+  padding: 8px 40px;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+}
+@media(max-width:639px) { .xuw-filter-bar { padding:8px 16px; top:var(--header-group-height,var(--header-height,56px)); } }
+.xuw-filter-bar__inner { display:flex; gap:8px; overflow-x:auto; flex:1; scrollbar-width:none; }
+.xuw-filter-bar__inner::-webkit-scrollbar { display:none; }
+.xuw-filter-groups { display:flex; gap:6px; align-items:center; flex-wrap:nowrap; }
+.xuw-filter-pill {
+  display:inline-flex; align-items:center;
+  height:28px; padding:0 10px;
+  border-radius:14px;
+  border:1px solid var(--xuw-border);
+  background:transparent; color:var(--xuw-muted);
+  font-size:11px; white-space:nowrap;
+  cursor:pointer; flex-shrink:0;
+  transition:all var(--xuw-t);
+}
+.xuw-filter-pill:hover { border-color:var(--xuw-border-lit); color:var(--xuw-white); }
+.xuw-filter-pill.is-active { background:var(--xuw-crimson); border-color:var(--xuw-crimson); color:var(--xuw-white); }
+.xuw-filter-pill--mode.is-active { background:var(--xuw-gold); border-color:var(--xuw-gold); color:#0A0A0A; }
+.xuw-filter-separator { width:1px; height:20px; background:var(--xuw-border); flex-shrink:0; }
+.xuw-filter-clear { font-size:11px; color:var(--xuw-muted); background:none; border:none; cursor:pointer; flex-shrink:0; padding:0 6px; transition:color var(--xuw-t); }
+.xuw-filter-clear:hover { color:var(--xuw-crimson); }
+.xuw-filter-bar__count { font-size:11px; color:var(--xuw-muted); flex-shrink:0; }
+
+/* ── V6 CART WHOLESALE TIER BANNER ── */
+.xuw-cart-ws-tier {
+  padding:10px 14px;
+  background:var(--xuw-gold-dim);
+  border:1px solid var(--xuw-gold);
+  border-radius:6px;
+  margin:8px 0;
+  font-size:12px; color:var(--xuw-white); line-height:1.5;
+}
+.xuw-cart-ws-tier a { color:var(--xuw-gold); }
+
 /* Brand grid */
 .xuw-brand-grid {
   display: flex;
@@ -359,36 +405,63 @@
 
 .xuw-card__variants-hint { font-size:11px; color:var(--xuw-muted); }
 
-/* Price zone */
-.xuw-card__price-zone { margin: 4px 0; }
+/* ── V6 PRICE ZONE — both rows always visible (Rule 11) ── */
+.xuw-card__price-zone { display:flex; flex-direction:column; gap:3px; margin:4px 0; }
 
-.xuw-price-retail .xuw-price__was { font-size:12px; color:var(--xuw-muted); text-decoration:line-through; margin-right:4px; display:inline; }
-.xuw-price-retail .xuw-price__now { font-size:17px; font-weight:700; color:var(--xuw-white); display:inline; }
-
-.xuw-price-wholesale { background:var(--xuw-gold-dim); border-radius:6px; padding:6px 8px; }
-.xuw-price__crossed { font-size:12px; color:var(--xuw-muted); text-decoration:line-through; display:block; }
-.xuw-price__ws-line { display:flex; align-items:center; gap:6px; margin-top:2px; }
-.xuw-price__ws-val { font-size:17px; font-weight:700; color:var(--xuw-gold); }
-.xuw-ws-pill { display:inline-block; padding:1px 5px; border-radius:3px; font-size:9px; font-weight:700; background:var(--xuw-gold); color:var(--xuw-black); letter-spacing:.06em; }
-.xuw-price__moq { font-size:11px; color:var(--xuw-muted); margin:3px 0 0; }
-
-/* Utility: hides element (JS toggles this to switch price zones) */
+/* Utility: hides element */
 .xuw-is-hidden { display: none !important; }
 
-/* Wholesale sliding toggle on card */
-.xuw-card__toggle-row { margin-top:auto; padding-top:8px; border-top:1px solid var(--xuw-border); }
+/* Retail row — muted when wholesale mode active */
+.xuw-price__row { display:flex; align-items:center; gap:6px; }
+.xuw-price__row--retail .xuw-price__amount {
+  font-size:17px; font-weight:700; color:var(--xuw-muted);
+  transition:color var(--xuw-t), text-decoration var(--xuw-t);
+}
+.xuw-price__row--retail.is-active .xuw-price__amount { color:var(--xuw-white); }
+.xuw-card[data-current-mode="wholesale"] .xuw-price__row--retail .xuw-price__amount {
+  color:var(--xuw-muted); text-decoration:line-through;
+}
+.xuw-price__was { font-size:12px; color:var(--xuw-muted); text-decoration:line-through; }
 
-/* Scoped to button element to avoid conflict with sidebar .xuw-ws-toggle div */
-button.xuw-ws-toggle { display:flex; align-items:center; gap:8px; background:none; border:none; cursor:pointer; padding:4px 0; width:100%; transition:opacity var(--xuw-t); }
-button.xuw-ws-toggle:hover:not(.is-loading) { opacity:0.82; }
-button.xuw-ws-toggle.is-loading { pointer-events:none; opacity:0.5; cursor:default; }
-.xuw-ws-toggle__track { width:34px; height:18px; background:var(--xuw-border); border-radius:9px; position:relative; flex-shrink:0; border:1px solid transparent; transition:background var(--xuw-t), border-color var(--xuw-t); }
-button.xuw-ws-toggle:hover:not(.is-loading) .xuw-ws-toggle__track { border-color:var(--xuw-border-lit); }
-button.xuw-ws-toggle.is-active .xuw-ws-toggle__track { background:var(--xuw-gold); border-color:var(--xuw-gold); }
-.xuw-ws-toggle__pill { position:absolute; top:2px; left:2px; width:12px; height:12px; border-radius:50%; background:var(--xuw-white); transition:transform var(--xuw-t); }
-button.xuw-ws-toggle.is-active .xuw-ws-toggle__pill { transform:translateX(16px); }
-.xuw-ws-toggle__lbl { font-size:12px; font-weight:500; color:var(--xuw-muted); transition:color var(--xuw-t); }
-button.xuw-ws-toggle.is-active .xuw-ws-toggle__lbl { color:var(--xuw-gold); }
+/* Wholesale row — dim until wholesale mode active */
+.xuw-price__row--ws .xuw-price__amount--ws {
+  font-size:17px; font-weight:700; color:var(--xuw-gold);
+  opacity:0.55; transition:opacity var(--xuw-t);
+}
+.xuw-card[data-current-mode="wholesale"] .xuw-price__row--ws .xuw-price__amount--ws { opacity:1; }
+
+.xuw-price__label { font-size:10px; color:var(--xuw-muted); text-transform:uppercase; letter-spacing:.06em; }
+.xuw-ws-pill { display:inline-block; padding:1px 5px; border-radius:3px; font-size:9px; font-weight:700; background:var(--xuw-gold); color:var(--xuw-black); letter-spacing:.06em; }
+
+/* MOQ note — only visible in wholesale mode */
+.xuw-price__moq { font-size:11px; color:var(--xuw-muted); margin:2px 0 0; display:none; }
+.xuw-card[data-current-mode="wholesale"] .xuw-price__moq { display:block; }
+
+/* ── V6 MODE SELECTOR — two pill buttons (Retail / Wholesale) ── */
+.xuw-price-mode-row { display:flex; gap:4px; padding:4px 0; }
+.xuw-mode-btn {
+  flex:1; padding:5px 8px;
+  border:1px solid var(--xuw-border);
+  border-radius:4px;
+  background:transparent;
+  color:var(--xuw-muted);
+  font-size:11px; font-weight:500;
+  cursor:pointer;
+  transition:all var(--xuw-t);
+}
+.xuw-mode-btn:hover { border-color:var(--xuw-border-lit); color:var(--xuw-white); }
+.xuw-mode-btn.is-active {
+  background:var(--xuw-crimson); border-color:var(--xuw-crimson); color:var(--xuw-white);
+}
+.xuw-mode-btn.is-loading { pointer-events:none; opacity:0.5; }
+
+/* ATC button tint when wholesale mode active on card */
+.xuw-card[data-current-mode="wholesale"] .xuw-btn--primary {
+  background:var(--xuw-gold); color:#0A0A0A;
+}
+.xuw-card[data-current-mode="wholesale"] .xuw-btn--primary:hover:not([disabled]):not(.is-loading) {
+  background:var(--xuw-gold-lt);
+}
 
 /* ═══════════════════════════════════════════════
    BUTTONS — V3
