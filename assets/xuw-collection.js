@@ -740,7 +740,8 @@
     if(selectable.length===1&&selectable[0].title==='Default Title'){
       state.retailVariantId=selectable[0].id; _updateModalPrice(selectable[0]); return;
     }
-    var firstAvail=selectable.find(function(v){return v.available;})||selectable[0];
+    var firstAvail=selectable[0];
+    for(var fa=0;fa<selectable.length;fa++){if(selectable[fa].available){firstAvail=selectable[fa];break;}}
     state.retailVariantId=firstAvail.id; _updateModalPrice(firstAvail);
     selectable.forEach(function(variant){
       var pill=document.createElement('button');pill.type='button';
@@ -777,7 +778,7 @@
       else D.wsTiers.classList.add('xuw-is-hidden');
     }
     if(state.retailVariantId&&state.product){
-      var v=state.product.variants.find(function(x){return x.id===state.retailVariantId;});
+      var v=null; for(var mi=0;mi<state.product.variants.length;mi++){if(state.product.variants[mi].id===state.retailVariantId){v=state.product.variants[mi];break;}}
       if(v) _updateModalPrice(v);
     }
     _updateWsTierDisplay();
