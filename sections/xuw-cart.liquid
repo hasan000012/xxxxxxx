@@ -1,0 +1,496 @@
+{% comment %}
+================================================================================
+  X UNDER WORLD — Cart Section  (Drag & Drop)
+  File    : sections/xuw-cart.liquid
+  Version : 1.0 (V6 spec)
+
+  DRAG AND DROP
+  ─────────────────────────────────────────────────────────────────────────────
+  Add to any page via Shopify Theme Customizer → Add Section.
+  Two presets: "XUW Cart" and "XUW Basket".
+  Best placed on the cart page template (templates/cart.json).
+
+  15 CART STYLES — schema "cart_style" → cs1…cs15
+  CSS lives in  assets/xuw-shop-styles.css
+
+  FEATURES
+  ─────────────────────────────────────────────────────────────────────────────
+  ✓ Renders all cart line items via Shopify cart object
+  ✓ AJAX quantity update (ES5 XHR — no jQuery, no fetch)
+  ✓ AJAX remove item (sets qty to 0)
+  ✓ Wholesale tier progress bar (schema toggle)
+  ✓ Free shipping progress bar (schema toggle + threshold)
+  ✓ Order note field (schema toggle)
+  ✓ Product image, title, variant, SKU, line price
+  ✓ Cart subtotal + checkout CTA
+  ✓ Empty state with CTA link
+
+  RULES APPLIED
+  ─────────────────────────────────────────────────────────────────────────────
+  RULE 2 — No | t filter. All strings hardcoded or | default.
+  RULE 3 — No inline handlers. JS uses addEventListener + data-action.
+  RULE 6 — All classes prefixed .xuw-.
+  RULE 8 — ES5 JS only: no arrow functions, no const/let, no template literals.
+  RULE 9 — Wholesale variant NEVER in cart. This section shows cart totals only.
+================================================================================
+{% endcomment %}
+
+{%- liquid
+  assign cart_style         = section.settings.cart_style | default: 'cs1'
+  assign show_ws_tiers      = section.settings.show_ws_tiers
+  assign show_free_shipping = section.settings.show_free_shipping
+  assign fs_threshold       = section.settings.free_shipping_threshold | default: 50
+  assign show_note          = section.settings.show_note
+  assign c_crimson          = section.settings.color_crimson | default: '#8b4444'
+  assign c_gold             = section.settings.color_gold    | default: '#ffcc00'
+  assign c_bg               = section.settings.color_bg      | default: '#000000'
+  assign c_text             = section.settings.color_text    | default: '#ffffff'
+-%}
+
+{{ 'xuw-shop-styles.css' | asset_url | stylesheet_tag }}
+
+<style>
+  #xuw-cart-sec-{{ section.id }} {
+    --xuw-crimson : {{ c_crimson }};
+    --xuw-gold    : {{ c_gold }};
+    --xuw-black   : {{ c_bg }};
+    --xuw-white   : {{ c_text }};
+  }
+</style>
+
+{%- comment %} Money format span — read by inline cart JS below {% endcomment %}
+<span id="xuw-money-fmt" data-fmt="{{ shop.money_format }}" style="display:none" aria-hidden="true"></span>
+
+<div id="xuw-cart-sec-{{ section.id }}"
+     class="xuw-cart--{{ cart_style }}"
+     data-section-id="{{ section.id }}">
+
+  {%- if cart.item_count == 0 -%}
+
+    {%- comment %} ── EMPTY CART STATE ── {% endcomment %}
+    <div class="xuw-cart-section">
+      <div class="xuw-cart-empty">
+        <div class="xuw-cart-empty__icon" aria-hidden="true">&#128722;</div>
+        <p class="xuw-cart-empty__msg">{{ section.settings.empty_heading | default: 'Your cart is empty' }}</p>
+        {%- if section.settings.empty_sub != blank -%}
+          <p style="font-size:14px;color:var(--xuw-muted);margin-bottom:24px">{{ section.settings.empty_sub }}</p>
+        {%- endif -%}
+        {%- if section.settings.empty_btn_url != blank -%}
+          <a href="{{ section.settings.empty_btn_url }}" class="xuw-btn xuw-btn--buy" style="display:inline-block;width:auto;margin-top:8px">
+            {{ section.settings.empty_btn_label | default: 'Shop Now' }}
+          </a>
+        {%- endif -%}
+      </div>
+    </div>
+
+  {%- else -%}
+
+    <div class="xuw-cart-section" id="xuwCartSection">
+
+      {%- comment %} ── CART HEADER ── {% endcomment %}
+      <div class="xuw-cart-section__head">
+        <h2 class="xuw-cart-section__title">{{ section.settings.heading | default: 'Your Cart' }}</h2>
+        <span class="xuw-cart-section__count" aria-live="polite">
+          <span id="xuwCartCount">{{ cart.item_count }}</span>
+          {%- if cart.item_count == 1 -%} item{%- else -%} items{%- endif -%}
+        </span>
+      </div>
+
+      {%- comment %}
+      ── WHOLESALE TIER PROGRESS ────────────────────────────────────────────
+      Reads cart.total_price (in cents) and shows progress toward next tier.
+      €300+=3%  €500+=5%  €1000+=10%  €2000+=20%
+      {% endcomment %}
+      {%- if show_ws_tiers -%}
+        {%- assign cart_eur = cart.total_price | divided_by: 100.0 -%}
+        <div class="xuw-cart-ws-tier-bar" id="xuwCartTierBar" aria-live="polite">
+          {%- if cart_eur >= 2000 -%}
+            <strong style="color:var(--xuw-gold)">&#10003; 20% bulk discount active!</strong>
+            Maximum tier reached.
+          {%- elsif cart_eur >= 1000 -%}
+            {%- assign to_next = 2000 | minus: cart_eur -%}
+            Add <strong>&#8364;{{ to_next | ceil }}</strong> more for <strong style="color:var(--xuw-gold)">20% off</strong>
+          {%- elsif cart_eur >= 500 -%}
+            {%- assign to_next = 1000 | minus: cart_eur -%}
+            Add <strong>&#8364;{{ to_next | ceil }}</strong> more for <strong style="color:var(--xuw-gold)">10% off</strong>
+          {%- elsif cart_eur >= 300 -%}
+            {%- assign to_next = 500 | minus: cart_eur -%}
+            Add <strong>&#8364;{{ to_next | ceil }}</strong> more for <strong style="color:var(--xuw-gold)">5% off</strong>
+          {%- else -%}
+            {%- assign to_next = 300 | minus: cart_eur -%}
+            Add <strong>&#8364;{{ to_next | ceil }}</strong> more for <strong style="color:var(--xuw-gold)">3% off</strong>
+          {%- endif -%}
+        </div>
+      {%- endif -%}
+
+      {%- comment %}
+      ── FREE SHIPPING PROGRESS BAR ────────────────────────────────────────
+      Threshold set in schema (EUR). Shows progress bar + remaining amount.
+      {% endcomment %}
+      {%- if show_free_shipping -%}
+        {%- assign fs_cents = fs_threshold | times: 100 -%}
+        {%- assign fs_remaining = fs_cents | minus: cart.total_price -%}
+        <div class="xuw-cart-shipping-bar" style="margin-bottom:18px">
+          {%- if fs_remaining <= 0 -%}
+            <p style="font-size:13px;color:var(--xuw-gold)">&#10003; You qualify for free shipping!</p>
+          {%- else -%}
+            {%- assign fs_pct = cart.total_price | times: 100 | divided_by: fs_cents -%}
+            {%- if fs_pct > 100 -%}{%- assign fs_pct = 100 -%}{%- endif -%}
+            <p style="font-size:13px;color:var(--xuw-muted);margin-bottom:8px">
+              Add <strong style="color:var(--xuw-white)">&#8364;{{ fs_remaining | divided_by: 100.0 | round }}</strong> more for free shipping
+            </p>
+            <div style="height:4px;background:var(--xuw-surface-2);border-radius:2px;overflow:hidden">
+              <div style="height:100%;width:{{ fs_pct }}%;background:var(--xuw-gold);border-radius:2px;transition:width .4s ease"></div>
+            </div>
+          {%- endif -%}
+        </div>
+      {%- endif -%}
+
+      {%- comment %} ── BODY: ITEMS + ASIDE SUMMARY ── {% endcomment %}
+      <div class="xuw-cart-body">
+
+        {%- comment %} ── LEFT: LINE ITEMS ── {% endcomment %}
+        <div class="xuw-cart-items" id="xuwCartItems">
+          {%- for item in cart.items -%}
+            <div class="xuw-cart-item" data-key="{{ item.key }}" data-index="{{ forloop.index }}">
+
+              {%- comment %} Product image {% endcomment %}
+              <a href="{{ item.url }}" class="xuw-cart-item__img-wrap" tabindex="-1" aria-hidden="true">
+                {%- if item.image -%}
+                  <img src="{{ item.image | image_url: width: 176 }}"
+                    alt="{{ item.title | escape }}"
+                    width="88" height="88"
+                    loading="lazy"
+                    class="xuw-cart-item__img">
+                {%- else -%}
+                  <svg width="40" height="40" viewBox="0 0 40 40" fill="none" aria-hidden="true">
+                    <rect width="40" height="40" fill="rgba(255,255,255,.06)"/>
+                    <path d="M10 30l10-14 6 8 4-5 6 11H10z" fill="rgba(255,255,255,.18)"/>
+                  </svg>
+                {%- endif -%}
+              </a>
+
+              {%- comment %} Info: vendor, title, variant, qty controls {% endcomment %}
+              <div class="xuw-cart-item__info">
+                {%- if item.vendor != blank -%}
+                  <span class="xuw-cart-item__vendor">{{ item.vendor }}</span>
+                {%- endif -%}
+                <a href="{{ item.url }}" class="xuw-cart-item__name">{{ item.title }}</a>
+                {%- unless item.variant.title == 'Default Title' or item.variant.title == blank -%}
+                  <span class="xuw-cart-item__variant">{{ item.variant.title }}</span>
+                {%- endunless -%}
+                {%- if item.sku != blank -%}
+                  <span class="xuw-cart-item__variant" style="font-size:10px;opacity:.55">SKU: {{ item.sku }}</span>
+                {%- endif -%}
+                {%- comment %} Quantity row {% endcomment %}
+                <div class="xuw-cart-item__qty">
+                  <button class="xuw-cart-item__qty-btn"
+                    data-action="cart-dec"
+                    data-key="{{ item.key }}"
+                    type="button"
+                    aria-label="Decrease quantity">&#8722;</button>
+                  <span class="xuw-cart-item__qty-val"
+                    id="xuwQtyVal-{{ item.key | replace: ':', '-' }}">{{ item.quantity }}</span>
+                  <button class="xuw-cart-item__qty-btn"
+                    data-action="cart-inc"
+                    data-key="{{ item.key }}"
+                    type="button"
+                    aria-label="Increase quantity">&#43;</button>
+                </div>
+              </div>
+
+              {%- comment %} Right: price + remove {% endcomment %}
+              <div class="xuw-cart-item__price-col">
+                <span class="xuw-cart-item__price"
+                  id="xuwLinePrice-{{ item.key | replace: ':', '-' }}">{{ item.final_line_price | money }}</span>
+                {%- if item.original_line_price != item.final_line_price -%}
+                  <span style="font-size:11px;text-decoration:line-through;color:var(--xuw-muted)">{{ item.original_line_price | money }}</span>
+                {%- endif -%}
+                <button class="xuw-cart-item__remove"
+                  data-action="cart-remove"
+                  data-key="{{ item.key }}"
+                  type="button"
+                  aria-label="Remove {{ item.title | escape }}">&#10005;</button>
+              </div>
+
+            </div>
+          {%- endfor -%}
+        </div><!-- /.xuw-cart-items -->
+
+        {%- comment %} ── RIGHT: CART SUMMARY ASIDE ── {% endcomment %}
+        <aside class="xuw-cart-aside" aria-label="Cart summary">
+          <div class="xuw-cart-summary">
+
+            {%- comment %} Subtotal row {% endcomment %}
+            <div class="xuw-cart-summary__row">
+              <span>{{ section.settings.subtotal_label | default: 'Subtotal' }}</span>
+              <span id="xuwCartSubtotal">{{ cart.total_price | money }}</span>
+            </div>
+
+            {%- comment %} Discount rows (if any) {% endcomment %}
+            {%- if cart.cart_level_discount_applications.size > 0 -%}
+              {%- for discount in cart.cart_level_discount_applications -%}
+                <div class="xuw-cart-summary__row" style="color:var(--xuw-gold)">
+                  <span>{{ discount.title }}</span>
+                  <span>-{{ discount.total_allocated_amount | money }}</span>
+                </div>
+              {%- endfor -%}
+            {%- endif -%}
+
+            {%- comment %} Total row {% endcomment %}
+            <div class="xuw-cart-summary__row xuw-cart-summary__row--total">
+              <span class="xuw-cart-summary__label--total">{{ section.settings.total_label | default: 'Total' }}</span>
+              <span class="xuw-cart-summary__value--total" id="xuwCartTotal">{{ cart.total_price | money }}</span>
+            </div>
+
+            <p style="font-size:11px;color:var(--xuw-muted);margin:10px 0 16px;line-height:1.5">
+              {{ section.settings.tax_note | default: 'Tax included. Shipping calculated at checkout.' }}
+            </p>
+
+            {%- comment %} Order note {% endcomment %}
+            {%- if show_note -%}
+              <div style="margin-bottom:14px">
+                <label style="display:block;font-size:11px;color:var(--xuw-muted);letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px"
+                  for="xuwCartNote">{{ section.settings.note_label | default: 'Order note' }}</label>
+                <textarea id="xuwCartNote"
+                  class="xuw-cart-note-input"
+                  rows="3"
+                  name="note"
+                  style="width:100%;background:var(--xuw-surface-2);border:1px solid var(--xuw-border);color:var(--xuw-white);font-size:13px;padding:8px 10px;resize:vertical;outline:none;font-family:var(--xuw-font-body)"
+                  placeholder="{{ section.settings.note_placeholder | default: 'Special instructions...' }}">{{ cart.note }}</textarea>
+              </div>
+            {%- endif -%}
+
+            {%- comment %} Checkout button {% endcomment %}
+            <a href="{{ routes.checkout_url }}"
+               class="xuw-cart-checkout"
+               id="xuwCheckoutBtn">
+              {{ section.settings.checkout_label | default: 'Checkout' }} &#8594;
+            </a>
+
+            {%- comment %} Continue shopping {% endcomment %}
+            {%- if section.settings.continue_url != blank -%}
+              <a href="{{ section.settings.continue_url }}" class="xuw-cart-continue">
+                &#8592; {{ section.settings.continue_label | default: 'Continue Shopping' }}
+              </a>
+            {%- else -%}
+              <a href="{{ routes.root_url }}" class="xuw-cart-continue">
+                &#8592; {{ section.settings.continue_label | default: 'Continue Shopping' }}
+              </a>
+            {%- endif -%}
+
+          </div><!-- /.xuw-cart-summary -->
+        </aside>
+
+      </div><!-- /.xuw-cart-body -->
+    </div><!-- /.xuw-cart-section -->
+
+  {%- endif -%}
+</div><!-- /.xuw-cart--* -->
+
+<script>
+(function() {
+  'use strict';
+  /*
+   * XUW Cart JS — ES5, no arrow functions, no const/let, no template literals
+   * Handles: dec, inc, remove via AJAX Cart API (/cart/change.js)
+   * Rule 3: all events via addEventListener + data-action, zero onclick=
+   * Rule 9: never touches wholesale variant — only changes SIZE variant quantities
+   */
+
+  var secId = '{{ section.id }}';
+  var root  = document.getElementById('xuw-cart-sec-' + secId);
+  if (!root) return;
+
+  /* ── Format money using shop's money_format ── */
+  function _fmt(cents) {
+    var fmtEl = document.getElementById('xuw-money-fmt');
+    var fmt   = fmtEl ? fmtEl.getAttribute('data-fmt') : '{{amount}} EUR';
+    var units = (cents / 100).toFixed(2);
+    return fmt
+      .replace('{{amount}}', units)
+      .replace('{{amount_no_decimals}}', Math.round(cents / 100))
+      .replace('{{amount_with_comma_separator}}', units.replace('.', ','));
+  }
+
+  /* ── AJAX POST to /cart/change.js ── */
+  function _changeItem(key, qty) {
+    var xhr = new XMLHttpRequest();
+    xhr.open('POST', '/cart/change.js', true);
+    xhr.setRequestHeader('Content-Type', 'application/json');
+    xhr.setRequestHeader('Accept',       'application/json');
+    xhr.onreadystatechange = function() {
+      if (xhr.readyState !== 4) return;
+      if (xhr.status !== 200) return;
+      var data;
+      try { data = JSON.parse(xhr.responseText); } catch (e) { return; }
+      _refreshCart(data);
+    };
+    xhr.send(JSON.stringify({ id: key, quantity: qty }));
+  }
+
+  /* ── Update DOM after cart response ── */
+  function _refreshCart(data) {
+    var i, item, safeKey;
+
+    /* Update count badge */
+    var countEl = document.getElementById('xuwCartCount');
+    if (countEl) countEl.textContent = data.item_count;
+
+    /* Update subtotal + total */
+    var subEl  = document.getElementById('xuwCartSubtotal');
+    var totEl  = document.getElementById('xuwCartTotal');
+    var fmtVal = _fmt(data.total_price);
+    if (subEl) subEl.textContent = fmtVal;
+    if (totEl) totEl.textContent = fmtVal;
+
+    /* Update per-item qty display and line price */
+    for (i = 0; i < data.items.length; i++) {
+      item    = data.items[i];
+      safeKey = item.key.replace(':', '-');
+
+      var qtyEl   = document.getElementById('xuwQtyVal-'   + safeKey);
+      var priceEl = document.getElementById('xuwLinePrice-' + safeKey);
+      if (qtyEl)   qtyEl.textContent   = item.quantity;
+      if (priceEl) priceEl.textContent = _fmt(item.final_line_price);
+    }
+
+    /* Remove DOM rows for deleted items */
+    var rows = root.querySelectorAll('.xuw-cart-item');
+    var j;
+    for (j = 0; j < rows.length; j++) {
+      var rowKey = rows[j].getAttribute('data-key');
+      var found  = false;
+      for (i = 0; i < data.items.length; i++) {
+        if (data.items[i].key === rowKey) { found = true; break; }
+      }
+      if (!found && rows[j].parentNode) {
+        rows[j].parentNode.removeChild(rows[j]);
+      }
+    }
+
+    /* Show empty state if cart is now empty */
+    if (data.item_count === 0) {
+      var section = document.getElementById('xuwCartSection');
+      if (section && section.parentNode) {
+        section.parentNode.innerHTML =
+          '<div class="xuw-cart-section"><div class="xuw-cart-empty">' +
+          '<div class="xuw-cart-empty__icon" aria-hidden="true">&#128722;</div>' +
+          '<p class="xuw-cart-empty__msg">Your cart is empty</p>' +
+          '</div></div>';
+      }
+    }
+
+    /* Fire event for other components (e.g. header cart badge) */
+    document.dispatchEvent(new CustomEvent('xuw:cart-updated', { detail: { cart: data } }));
+  }
+
+  /* ── Read current qty for a key from the displayed span ── */
+  function _getQty(key) {
+    var safeKey = key.replace(':', '-');
+    var el = document.getElementById('xuwQtyVal-' + safeKey);
+    if (!el) return 1;
+    return parseInt(el.textContent, 10) || 1;
+  }
+
+  /* ── Delegated click handler ── */
+  root.addEventListener('click', function(e) {
+    var t      = e.target;
+    var action = t.getAttribute('data-action');
+    var key    = t.getAttribute('data-key');
+
+    /* Walk up one level for SVG children of the remove button */
+    if (!action && t.parentNode) {
+      action = t.parentNode.getAttribute('data-action');
+      key    = t.parentNode.getAttribute('data-key');
+    }
+    if (!action) return;
+
+    if (action === 'cart-dec') {
+      var curDec = _getQty(key);
+      var newDec = curDec > 1 ? curDec - 1 : 0;
+      _changeItem(key, newDec);
+    } else if (action === 'cart-inc') {
+      var curInc = _getQty(key);
+      _changeItem(key, curInc + 1);
+    } else if (action === 'cart-remove') {
+      _changeItem(key, 0);
+    }
+  });
+
+  /* ── Optional: save cart note on blur ── */
+  var noteEl = document.getElementById('xuwCartNote');
+  if (noteEl) {
+    noteEl.addEventListener('blur', function() {
+      var xhr2 = new XMLHttpRequest();
+      xhr2.open('POST', '/cart/update.js', true);
+      xhr2.setRequestHeader('Content-Type', 'application/json');
+      xhr2.send(JSON.stringify({ note: noteEl.value }));
+    });
+  }
+
+})();
+</script>
+
+{% schema %}
+{
+  "name": "XUW Cart",
+  "tag": "section",
+  "class": "xuw-section xuw-section--cart",
+  "settings": [
+    { "type": "header", "content": "Cart Style — 15 options (CSS: xuw-cart--cs1 … cs15)" },
+    {
+      "type": "select",
+      "id": "cart_style",
+      "label": "Cart visual style",
+      "default": "cs1",
+      "options": [
+        { "value": "cs1",  "label": "CS1  — Standard Dark" },
+        { "value": "cs2",  "label": "CS2  — Gold Accent" },
+        { "value": "cs3",  "label": "CS3  — Card Items" },
+        { "value": "cs4",  "label": "CS4  — Wide Layout" },
+        { "value": "cs5",  "label": "CS5  — Crimson Outline Summary" },
+        { "value": "cs6",  "label": "CS6  — Minimal Borderless" },
+        { "value": "cs7",  "label": "CS7  — Dark Surface" },
+        { "value": "cs8",  "label": "CS8  — Compact" },
+        { "value": "cs9",  "label": "CS9  — Split Full-Width" },
+        { "value": "cs10", "label": "CS10 — WS Tier Highlight" },
+        { "value": "cs11", "label": "CS11 — Light on Dark" },
+        { "value": "cs12", "label": "CS12 — Rounded Everything" },
+        { "value": "cs13", "label": "CS13 — Row Strip" },
+        { "value": "cs14", "label": "CS14 — Transparent" },
+        { "value": "cs15", "label": "CS15 — Studio Luxury" }
+      ]
+    },
+    { "type": "header", "content": "Text Labels" },
+    { "type": "text", "id": "heading",          "label": "Cart heading",           "default": "Your Cart" },
+    { "type": "text", "id": "subtotal_label",    "label": "Subtotal label",         "default": "Subtotal" },
+    { "type": "text", "id": "total_label",       "label": "Total label",            "default": "Total" },
+    { "type": "text", "id": "tax_note",          "label": "Tax / shipping note",    "default": "Tax included. Shipping calculated at checkout." },
+    { "type": "text", "id": "checkout_label",    "label": "Checkout button text",   "default": "Checkout" },
+    { "type": "text", "id": "continue_label",    "label": "Continue shopping text", "default": "Continue Shopping" },
+    { "type": "url",  "id": "continue_url",      "label": "Continue shopping URL (leave blank for homepage)" },
+    { "type": "header", "content": "Empty Cart State" },
+    { "type": "text", "id": "empty_heading",     "label": "Empty heading",          "default": "Your cart is empty" },
+    { "type": "text", "id": "empty_sub",         "label": "Empty subtext",          "default": "Add some tattoo supplies to get started." },
+    { "type": "text", "id": "empty_btn_label",   "label": "Empty CTA button",       "default": "Shop Now" },
+    { "type": "url",  "id": "empty_btn_url",     "label": "Empty CTA URL" },
+    { "type": "header", "content": "Features" },
+    { "type": "checkbox", "id": "show_ws_tiers",       "label": "Show wholesale tier progress", "default": true,  "info": "Shows how much more to spend for the next bulk discount tier." },
+    { "type": "checkbox", "id": "show_free_shipping",  "label": "Show free shipping progress",  "default": false },
+    { "type": "range",    "id": "free_shipping_threshold", "label": "Free shipping from (EUR)", "min": 0, "max": 500, "step": 5, "default": 50 },
+    { "type": "checkbox", "id": "show_note",     "label": "Show order note field",  "default": false },
+    { "type": "text",     "id": "note_label",    "label": "Note field label",       "default": "Order note" },
+    { "type": "text",     "id": "note_placeholder", "label": "Note placeholder",   "default": "Special instructions..." },
+    { "type": "header", "content": "Brand Colours" },
+    { "type": "color", "id": "color_crimson", "label": "Primary (crimson)", "default": "#8b4444" },
+    { "type": "color", "id": "color_gold",    "label": "Accent (gold)",     "default": "#ffcc00" },
+    { "type": "color", "id": "color_bg",      "label": "Background",        "default": "#000000" },
+    { "type": "color", "id": "color_text",    "label": "Text",              "default": "#ffffff" }
+  ],
+  "presets": [
+    { "name": "XUW Cart",   "category": "Cart" },
+    { "name": "XUW Basket", "category": "Cart" }
+  ]
+}
+{% endschema %}

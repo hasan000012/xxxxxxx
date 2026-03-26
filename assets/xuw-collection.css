@@ -465,6 +465,9 @@
   background:var(--xuw-crimson); border-color:var(--xuw-crimson); color:var(--xuw-white);
 }
 .xuw-mode-btn.is-loading { pointer-events:none; opacity:0.5; }
+/* Wholesale pill always visible — gold border even when inactive */
+.xuw-mode-btn[data-mode="wholesale"]:not(.is-active) { border-color:rgba(212,175,55,.55); color:var(--xuw-gold); }
+.xuw-mode-btn[data-mode="wholesale"]:not(.is-active):hover { border-color:var(--xuw-gold); background:rgba(212,175,55,.08); color:var(--xuw-gold-lt); }
 
 /* ATC button tint when wholesale mode active on card */
 .xuw-card[data-current-mode="wholesale"] .xuw-btn--primary {

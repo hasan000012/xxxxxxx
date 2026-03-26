@@ -1,0 +1,635 @@
+{% comment %}
+================================================================================
+  X UNDER WORLD — Shop Section  (Drag & Drop)
+  File    : sections/xuw-shop.liquid
+  Version : 1.0 (V6 spec)
+
+  DRAG AND DROP
+  ─────────────────────────────────────────────────────────────────────────────
+  Add to ANY page via Shopify Theme Customizer → Add Section.
+  The "presets" block makes it appear in the "Add section" menu.
+  Works on: Homepage, Collection pages, custom Pages, Blog pages.
+
+  15 FILTER STYLES  — schema "filter_style" → s1…s15
+  15 GRID LAYOUTS   — schema "grid_layout"  → l1…l15
+  CSS lives in   assets/xuw-shop-styles.css
+  JS powered by  assets/xuw-collection.js  (loaded globally via xuw-global.liquid)
+
+  SHARED ELEMENT IDs
+  ─────────────────────────────────────────────────────────────────────────────
+  This section reuses the same element IDs as xuw-collection.liquid so that
+  xuw-collection.js works without modification.
+  ⚠ DO NOT place both xuw-shop.liquid and xuw-collection.liquid on the
+    same page simultaneously — ID conflicts will break JS interactions.
+
+  RULES APPLIED
+  ─────────────────────────────────────────────────────────────────────────────
+  RULE 2  — No | t filter. All strings hardcoded or use | default.
+  RULE 3  — No inline handlers. All events via data-action delegation.
+  RULE 4  — Array assigns before for-loops (no pipe inside for tag).
+  RULE 5  — No paginate on homepage (request.page_type == 'index').
+            Uses for-loop with limit on index + all non-collection pages.
+            Uses paginate only when request.page_type == 'collection'.
+  RULE 6  — All classes prefixed .xuw-.
+  RULE 7  — Button URLs use type: url in schema.
+================================================================================
+{% endcomment %}
+
+{%- liquid
+  assign col              = section.settings.collection
+  if col == blank
+    if request.page_type == 'collection' and collection != blank
+      assign col = collection
+    else
+      assign col = collections.all
+    endif
+  endif
+  assign products_per_page = section.settings.products_per_page | default: 24
+  assign show_vendor        = section.settings.show_vendor
+  assign enable_filtering   = section.settings.enable_filtering
+  assign enable_sorting     = section.settings.enable_sorting
+  assign filter_style       = section.settings.filter_style | default: 's1'
+  assign grid_layout        = section.settings.grid_layout  | default: 'l1'
+  assign c_crimson          = section.settings.color_crimson | default: '#8b4444'
+  assign c_gold             = section.settings.color_gold    | default: '#ffcc00'
+  assign c_bg               = section.settings.color_bg      | default: '#000000'
+  assign c_text             = section.settings.color_text    | default: '#ffffff'
+-%}
+
+{{ 'xuw-shop-styles.css' | asset_url | stylesheet_tag }}
+
+<style>
+  #xuw-shop-{{ section.id }} {
+    --xuw-crimson : {{ c_crimson }};
+    --xuw-gold    : {{ c_gold }};
+    --xuw-black   : {{ c_bg }};
+    --xuw-white   : {{ c_text }};
+  }
+</style>
+
+{%- comment %} ── MONEY FORMAT (needed by xuw-collection.js) ── {% endcomment %}
+<span id="xuw-money-fmt" data-fmt="{{ shop.money_format }}" style="display:none" aria-hidden="true"></span>
+
+<div id="xuw-shop-{{ section.id }}"
+     class="xuw-shop xuw-shop--{{ filter_style }}"
+     data-section-id="{{ section.id }}">
+
+  {%- comment %}
+  ── MOBILE FILTER BUTTON (visible ≤639px for sidebar styles)
+     Also acts as drawer trigger for S14 on all breakpoints.
+  {% endcomment %}
+  {%- if enable_filtering -%}
+  <button class="xuw-filter-mobile-btn" id="xuwFilterMobileBtn"
+    data-action="toggle-sidebar"
+    aria-expanded="false"
+    aria-controls="xuwSidebar"
+    type="button">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+      <line x1="4" y1="6" x2="20" y2="6"/>
+      <line x1="8" y1="12" x2="20" y2="12"/>
+      <line x1="12" y1="18" x2="20" y2="18"/>
+    </svg>
+    {{ section.settings.filter_heading | default: 'Filters' }}
+    <span class="xuw-filter-badge" id="xuwFilterBadge" style="display:none" aria-live="polite">0</span>
+  </button>
+
+  {%- comment %} ── DRAWER OVERLAY (S14 only, CSS hides for other styles) ── {% endcomment %}
+  <div class="xuw-filter-overlay" id="xuwFilterOverlay" data-action="toggle-sidebar" role="presentation"></div>
+
+  {%- comment %} ══ FILTER SIDEBAR ══════════════════════════════════════════ {% endcomment %}
+  <aside class="xuw-filter-section xuw-filter--{{ filter_style }}"
+         id="xuwSidebar"
+         aria-label="Product filters">
+
+    {%- comment %} Drawer close button — shown only inside S14 drawer (CSS rule) {% endcomment %}
+    <button class="xuw-filter-drawer-close"
+            data-action="toggle-sidebar"
+            type="button"
+            aria-label="Close filters">&#10005;</button>
+
+    <div class="xuw-filter-section__head">
+      <span class="xuw-filter-section__title">{{ section.settings.filter_heading | default: 'Filters' }}</span>
+      <button class="xuw-filter-section__clear" id="xuwClearAll" data-action="clear-all" type="button">Clear All</button>
+    </div>
+
+    <div class="xuw-filter-section__inner">
+
+      {%- comment %}
+      ── PURCHASE TYPE: Retail / Wholesale ──────────────────────────────────
+      Value-based wholesale discount — no fixed MOQ.
+      €300+=3%  €500+=5%  €1000+=10%  €2000+=20%
+      JS (_setWsMode) in xuw-collection.js handles the toggle.
+      {% endcomment %}
+      <div class="xuw-filter-group xuw-filter-group--ws">
+        <button class="xuw-filter-group__head" data-action="toggle-group" aria-expanded="true" type="button">
+          <span>Purchase Type</span>
+          <svg class="xuw-chevron" width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+            <path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+        </button>
+        <div class="xuw-filter-group__body">
+          <div class="xuw-ws-toggle" role="group" aria-label="Purchase type">
+            <button class="xuw-ws-btn is-active" data-mode="retail"    data-action="set-ws-mode" type="button">Retail</button>
+            <button class="xuw-ws-btn"            data-mode="wholesale" data-action="set-ws-mode" type="button">Wholesale</button>
+          </div>
+          <p class="xuw-ws-note" id="xuwSidebarModeNote">Standard retail pricing</p>
+          <div class="xuw-ws-tiers" id="xuwSidebarTiers" style="display:none">
+            <p class="xuw-ws-tiers__label">Bulk discounts apply automatically:</p>
+            <table class="xuw-ws-tiers__table">
+              <tr><td>&#8364;300+</td><td class="xuw-ws-tiers__pct">3% off</td></tr>
+              <tr><td>&#8364;500+</td><td class="xuw-ws-tiers__pct">5% off</td></tr>
+              <tr><td>&#8364;1,000+</td><td class="xuw-ws-tiers__pct">10% off</td></tr>
+              <tr><td>&#8364;2,000+</td><td class="xuw-ws-tiers__pct">20% off</td></tr>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      {%- comment %}
+      ── DYNAMIC CATEGORY NAV ─────────────────────────────────────────────
+      Reads from linklists['shop-categories'] (Shopify Admin → Navigation).
+      RISK-2: if menu not configured the for-loop produces nothing — no error.
+      Active branch auto-opens when current collection.handle is in the URL.
+      {% endcomment %}
+      {%- for link in linklists['shop-categories'].links -%}
+        {%- assign branch_open = false -%}
+        {%- if collection != blank -%}
+          {%- if link.url contains collection.handle -%}
+            {%- assign branch_open = true -%}
+          {%- endif -%}
+          {%- for sub in link.links -%}
+            {%- if sub.url contains collection.handle -%}
+              {%- assign branch_open = true -%}
+            {%- endif -%}
+          {%- endfor -%}
+        {%- endif -%}
+        <div class="xuw-filter-group xuw-cat-group">
+          <button class="xuw-filter-group__head" data-action="toggle-group"
+            aria-expanded="{{ branch_open }}" type="button">
+            <span>{{ link.title }}</span>
+            <svg class="xuw-chevron{% unless branch_open %} xuw-chevron--closed{% endunless %}"
+              width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+              <path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+          </button>
+          <div class="xuw-cat-links"{% unless branch_open %} style="display:none"{% endunless %}>
+            {%- if link.links.size > 0 -%}
+              {%- for sub in link.links -%}
+                {%- assign sub_active = false -%}
+                {%- if collection != blank and sub.url contains collection.handle -%}
+                  {%- assign sub_active = true -%}
+                {%- endif -%}
+                <a href="{{ sub.url }}"
+                  class="xuw-cat-link{% if sub_active %} is-active{% endif %}">{{ sub.title }}</a>
+              {%- endfor -%}
+            {%- else -%}
+              {%- assign top_active = false -%}
+              {%- if collection != blank and link.url contains collection.handle -%}
+                {%- assign top_active = true -%}
+              {%- endif -%}
+              <a href="{{ link.url }}"
+                class="xuw-cat-link{% if top_active %} is-active{% endif %}">{{ link.title }}</a>
+            {%- endif -%}
+          </div>
+        </div>
+      {%- endfor -%}
+
+      {%- comment %} ── NEEDLE TYPE ─────────────────────────────────────── {% endcomment %}
+      <div class="xuw-filter-group">
+        <button class="xuw-filter-group__head" data-action="toggle-group" aria-expanded="false" type="button">
+          <span>Needle Type</span>
+          <svg class="xuw-chevron xuw-chevron--closed" width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+            <path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+        </button>
+        <div class="xuw-filter-group__body" style="display:none">
+          {%- assign nt_labels = "Magnum,Round Liner,Round Shader,Soft Edge Magnum,Diamond,Slope Magnum,Specialty" | split: "," -%}
+          {%- assign nt_slugs  = "magnum,round-liner,round-shader,soft-edge-magnum,diamond,slope-magnum,specialty" | split: "," -%}
+          {%- for i in (0..6) -%}
+            <label class="xuw-check">
+              <input type="checkbox" class="xuw-fc xuw-fc--static" data-filter-key="tags" data-filter-val="{{ nt_slugs[i] }}">
+              <span class="xuw-check__box"></span><span class="xuw-check__label">{{ nt_labels[i] }}</span>
+            </label>
+          {%- endfor -%}
+        </div>
+      </div>
+
+      {%- comment %} ── NEEDLE COUNT ─────────────────────────────────────── {% endcomment %}
+      <div class="xuw-filter-group">
+        <button class="xuw-filter-group__head" data-action="toggle-group" aria-expanded="false" type="button">
+          <span>Needle Count</span>
+          <svg class="xuw-chevron xuw-chevron--closed" width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+            <path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+        </button>
+        <div class="xuw-filter-group__body" style="display:none">
+          <div class="xuw-needle-grid">
+            {%- assign needle_pins = "1,3,5,7,9,11,13,14,15,17,18,19,21,23,25" | split: "," -%}
+            {%- for n in needle_pins -%}
+              <button class="xuw-needle-pill" data-filter-key="tags" data-filter-val="{{ n }}-pin"
+                data-action="needle-pill" aria-pressed="false" type="button">{{ n }}</button>
+            {%- endfor -%}
+          </div>
+          <p class="xuw-hint">Tap a count to filter (e.g. 9-pin)</p>
+        </div>
+      </div>
+
+      {%- comment %} ── TAPER ─────────────────────────────────────────────── {% endcomment %}
+      <div class="xuw-filter-group">
+        <button class="xuw-filter-group__head" data-action="toggle-group" aria-expanded="false" type="button">
+          <span>Taper</span>
+          <svg class="xuw-chevron xuw-chevron--closed" width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+            <path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+        </button>
+        <div class="xuw-filter-group__body" style="display:none">
+          {%- assign taper_labels = "Long Taper,Medium Taper,Short Taper,Standard" | split: "," -%}
+          {%- assign taper_slugs  = "long-taper,medium-taper,short-taper,standard"  | split: "," -%}
+          {%- for i in (0..3) -%}
+            <label class="xuw-check">
+              <input type="checkbox" class="xuw-fc xuw-fc--static" data-filter-key="tags" data-filter-val="{{ taper_slugs[i] }}">
+              <span class="xuw-check__box"></span><span class="xuw-check__label">{{ taper_labels[i] }}</span>
+            </label>
+          {%- endfor -%}
+        </div>
+      </div>
+
+      {%- comment %} ── CONFIGURATION ────────────────────────────────────── {% endcomment %}
+      <div class="xuw-filter-group">
+        <button class="xuw-filter-group__head" data-action="toggle-group" aria-expanded="false" type="button">
+          <span>Configuration</span>
+          <svg class="xuw-chevron xuw-chevron--closed" width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+            <path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+        </button>
+        <div class="xuw-filter-group__body" style="display:none">
+          {%- assign cfg_labels = "Open Magnum,Closed Magnum,Bugpin,Straight" | split: "," -%}
+          {%- assign cfg_slugs  = "open-magnum,closed-magnum,bugpin,straight"  | split: "," -%}
+          {%- for i in (0..3) -%}
+            <label class="xuw-check">
+              <input type="checkbox" class="xuw-fc xuw-fc--static" data-filter-key="tags" data-filter-val="{{ cfg_slugs[i] }}">
+              <span class="xuw-check__box"></span><span class="xuw-check__label">{{ cfg_labels[i] }}</span>
+            </label>
+          {%- endfor -%}
+        </div>
+      </div>
+
+      {%- comment %} ── CARTRIDGE LINE ────────────────────────────────────── {% endcomment %}
+      <div class="xuw-filter-group">
+        <button class="xuw-filter-group__head" data-action="toggle-group" aria-expanded="false" type="button">
+          <span>Cartridge Line</span>
+          <svg class="xuw-chevron xuw-chevron--closed" width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+            <path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+        </button>
+        <div class="xuw-filter-group__body" style="display:none">
+          {%- assign line_labels = "Biodegradable,Comfort,Needle Cartridge,Slim Line" | split: "," -%}
+          {%- assign line_slugs  = "biodegradable,comfort,needle-cartridge,slim-line"  | split: "," -%}
+          {%- for i in (0..3) -%}
+            <label class="xuw-check">
+              <input type="checkbox" class="xuw-fc xuw-fc--static" data-filter-key="tags" data-filter-val="{{ line_slugs[i] }}">
+              <span class="xuw-check__box"></span><span class="xuw-check__label">{{ line_labels[i] }}</span>
+            </label>
+          {%- endfor -%}
+        </div>
+      </div>
+
+      {%- comment %} ── CARTRIDGE BRAND ───────────────────────────────────── {% endcomment %}
+      <div class="xuw-filter-group">
+        <button class="xuw-filter-group__head" data-action="toggle-group" aria-expanded="false" type="button">
+          <span>Cartridge Brand</span>
+          <svg class="xuw-chevron xuw-chevron--closed" width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+            <path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+        </button>
+        <div class="xuw-filter-group__body" style="display:none">
+          {%- assign bslug_labels = "Magic Moon,Kwadron,Lunar PMU" | split: "," -%}
+          {%- assign bslug_slugs  = "magic-moon,kwadron,lunar-pmu" | split: "," -%}
+          {%- for i in (0..2) -%}
+            <label class="xuw-check">
+              <input type="checkbox" class="xuw-fc xuw-fc--static" data-filter-key="tags" data-filter-val="{{ bslug_slugs[i] }}">
+              <span class="xuw-check__box"></span><span class="xuw-check__label">{{ bslug_labels[i] }}</span>
+            </label>
+          {%- endfor -%}
+        </div>
+      </div>
+
+      {%- comment %} ── INK VOLUME ────────────────────────────────────────── {% endcomment %}
+      <div class="xuw-filter-group">
+        <button class="xuw-filter-group__head" data-action="toggle-group" aria-expanded="false" type="button">
+          <span>Ink Volume</span>
+          <svg class="xuw-chevron xuw-chevron--closed" width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+            <path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+        </button>
+        <div class="xuw-filter-group__body" style="display:none">
+          {%- assign volumes = "15ml,22ml,30ml,50ml,150ml" | split: "," -%}
+          {%- for v in volumes -%}
+            <label class="xuw-check">
+              <input type="checkbox" class="xuw-fc xuw-fc--static" data-filter-key="tags" data-filter-val="{{ v }}">
+              <span class="xuw-check__box"></span><span class="xuw-check__label">{{ v }}</span>
+            </label>
+          {%- endfor -%}
+        </div>
+      </div>
+
+      {%- comment %} ── BRAND (all 44 vendors) ────────────────────────────── {% endcomment %}
+      <div class="xuw-filter-group">
+        <button class="xuw-filter-group__head" data-action="toggle-group" aria-expanded="false" type="button">
+          <span>Brand</span>
+          <svg class="xuw-chevron xuw-chevron--closed" width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+            <path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+        </button>
+        <div class="xuw-filter-group__body" style="display:none">
+          {%- assign brands = "Magic Moon,Magic Moon Shop,Lunar PMU,UNI,Cheyenne,Critical,Kwadron,Tombow,Eberhard Faber,FK Irons,Unigloves,Neuma,Tattoo Workz,Legend,Musotoku,Spirit,Sara Pavo,Equaliser,I AM INK,InkTrox,Shagbuilt,Unistar,Dermalize,InkJecta,Stencil Stuff,Method,Hustle Butter,Maximo,Inklab,Polybius,Stigma-Rotary,ArtDriver,Dragonhawk,Nemesis,World Famous,Intenze,Kuro Sumi,Perma Blend,Panthera,Apex Eternal,Dynamic,Eclipse,Talens,Various" | split: "," -%}
+          {%- for b in brands -%}
+            <label class="xuw-check">
+              <input type="checkbox" class="xuw-fc xuw-fc--static" data-filter-key="vendor" data-filter-val="{{ b | downcase }}">
+              <span class="xuw-check__box"></span><span class="xuw-check__label">{{ b }}</span>
+            </label>
+          {%- endfor -%}
+        </div>
+      </div>
+
+      {%- comment %} ── AVAILABILITY ──────────────────────────────────────── {% endcomment %}
+      <div class="xuw-filter-group">
+        <button class="xuw-filter-group__head" data-action="toggle-group" aria-expanded="true" type="button">
+          <span>Availability</span>
+          <svg class="xuw-chevron" width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+            <path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+        </button>
+        <div class="xuw-filter-group__body">
+          <label class="xuw-check">
+            <input type="checkbox" class="xuw-fc xuw-fc--static" data-filter-key="available" data-filter-val="true">
+            <span class="xuw-check__box"></span><span class="xuw-check__label">In Stock Only</span>
+          </label>
+        </div>
+      </div>
+
+      {%- comment %}
+      ── SHOPIFY SEARCH & DISCOVERY DYNAMIC FILTERS ───────────────────────
+      Only available on collection pages where col.filters is populated.
+      Skips duplicates (Availability, Vendor, Brand, Product type already shown).
+      {% endcomment %}
+      {%- if col.filters.size > 0 -%}
+        {%- assign skip_labels = "Availability,Vendor,Brand,Product type,Product Type,Category" | split: "," -%}
+        {%- for filter in col.filters -%}
+          {%- assign skip = false -%}
+          {%- for sl in skip_labels -%}
+            {%- if filter.label == sl -%}{%- assign skip = true -%}{%- endif -%}
+          {%- endfor -%}
+          {%- unless skip -%}
+            <div class="xuw-filter-group">
+              <button class="xuw-filter-group__head" data-action="toggle-group" aria-expanded="true" type="button">
+                <span>{{ filter.label }}</span>
+                <svg class="xuw-chevron" width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+                  <path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                </svg>
+              </button>
+              <div class="xuw-filter-group__body">
+                {%- case filter.type -%}
+                  {%- when 'boolean' -%}
+                    <label class="xuw-check">
+                      <input type="checkbox" class="xuw-fc xuw-fc--dynamic"
+                        {% if filter.active_values.size > 0 %}checked{% endif %}
+                        data-add="{{ filter.values[0].url_to_add }}"
+                        data-remove="{{ filter.values[0].url_to_remove }}">
+                      <span class="xuw-check__box"></span>
+                      <span class="xuw-check__label">{{ filter.label }}</span>
+                    </label>
+                  {%- when 'list' -%}
+                    {%- for value in filter.values -%}
+                      <label class="xuw-check{% if value.count == 0 and value.active == false %} xuw-check--empty{% endif %}">
+                        <input type="checkbox" class="xuw-fc xuw-fc--dynamic"
+                          {% if value.active %}checked{% endif %}
+                          {% if value.count == 0 and value.active == false %}disabled{% endif %}
+                          data-add="{{ value.url_to_add }}"
+                          data-remove="{{ value.url_to_remove }}">
+                        <span class="xuw-check__box"></span>
+                        <span class="xuw-check__label">{{ value.label }}</span>
+                        <span class="xuw-check__count">{{ value.count }}</span>
+                      </label>
+                    {%- endfor -%}
+                  {%- when 'price_range' -%}
+                    <div class="xuw-price-range">
+                      <div class="xuw-price-range__track">
+                        <div class="xuw-price-range__fill" id="xuwPriceFill"></div>
+                        <input type="range" class="xuw-range" id="xuwPriceMin"
+                          min="{{ filter.range_min | divided_by: 100.0 }}"
+                          max="{{ filter.range_max | divided_by: 100.0 }}"
+                          value="{{ filter.min_value.value | default: filter.range_min | divided_by: 100.0 }}"
+                          step="1" data-param="{{ filter.min_value.param_name }}" aria-label="Minimum price">
+                        <input type="range" class="xuw-range" id="xuwPriceMax"
+                          min="{{ filter.range_min | divided_by: 100.0 }}"
+                          max="{{ filter.range_max | divided_by: 100.0 }}"
+                          value="{{ filter.max_value.value | default: filter.range_max | divided_by: 100.0 }}"
+                          step="1" data-param="{{ filter.max_value.param_name }}" aria-label="Maximum price">
+                      </div>
+                      <div class="xuw-price-range__labels">
+                        <span id="xuwPriceMinLbl">&#8364;{{ filter.min_value.value | default: filter.range_min | divided_by: 100.0 | round }}</span>
+                        <span id="xuwPriceMaxLbl">&#8364;{{ filter.max_value.value | default: filter.range_max | divided_by: 100.0 | round }}</span>
+                      </div>
+                    </div>
+                {%- endcase -%}
+              </div>
+            </div>
+          {%- endunless -%}
+        {%- endfor -%}
+      {%- endif -%}
+
+      {%- comment %} Active filter chips (shown by JS when filters are active) {% endcomment %}
+      <div class="xuw-active-chips" id="xuwActiveChips" style="display:none">
+        <p class="xuw-active-chips__label">Active filters:</p>
+        <div id="xuwChipList"></div>
+      </div>
+
+    </div><!-- /.xuw-filter-section__inner -->
+  </aside>
+  {%- endif -%}
+
+  {%- comment %} ══ MAIN CONTENT AREA ══════════════════════════════════════ {% endcomment %}
+  <div class="xuw-shop__main">
+
+    {%- comment %} Header: product count + search bar + sort {% endcomment %}
+    <div class="xuw-shop__header">
+      <div class="xuw-shop__count" aria-live="polite">
+        <span id="xuwProductCount">{{ col.products_count }}</span>&thinsp;Products
+      </div>
+      <div class="xuw-search-bar">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <circle cx="11" cy="11" r="8"/>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+        </svg>
+        <input type="search" id="xuwSearch"
+          placeholder="Filter visible products..."
+          autocomplete="off"
+          aria-label="Filter products">
+        <button class="xuw-search-clear" id="xuwSearchClear"
+          data-action="clear-search"
+          style="display:none"
+          aria-label="Clear search"
+          type="button">&#10005;</button>
+      </div>
+      {%- if enable_sorting -%}
+        {%- assign cur_sort = col.sort_by | default: '' -%}
+        <select class="xuw-shop__sort" id="xuwSortSelect" aria-label="Sort products">
+          <option value="title-ascending"    {% if cur_sort == 'title-ascending'    %}selected{% endif %}>A – Z</option>
+          <option value="title-descending"   {% if cur_sort == 'title-descending'   %}selected{% endif %}>Z – A</option>
+          <option value="price-ascending"    {% if cur_sort == 'price-ascending'    %}selected{% endif %}>Price &#8593;</option>
+          <option value="price-descending"   {% if cur_sort == 'price-descending'   %}selected{% endif %}>Price &#8595;</option>
+          <option value="best-selling"       {% if cur_sort == 'best-selling'       %}selected{% endif %}>Best Selling</option>
+          <option value="created-descending" {% if cur_sort == 'created-descending' %}selected{% endif %}>Newest</option>
+        </select>
+      {%- endif -%}
+    </div><!-- /.xuw-shop__header -->
+
+    {%- comment %}
+    ══ PRODUCT GRID ══════════════════════════════════════════════════════════
+    RULE 5: paginate is ONLY used when page_type == 'collection'.
+            On all other pages (index, page, article, etc.) use for-loop with
+            limit. This prevents the Liquid error paginate throws on homepage.
+    ══════════════════════════════════════════════════════════════════════════
+    {% endcomment %}
+    {%- if request.page_type == 'collection' -%}
+
+      {%- paginate col.products by products_per_page -%}
+        <div class="xuw-product-grid xuw-grid--{{ grid_layout }}"
+             id="xuwGrid"
+             data-total="{{ col.products_count }}">
+          {%- for product in col.products -%}
+            {%- render 'xuw-product-card', product: product, show_vendor: show_vendor -%}
+          {%- else -%}
+            <div class="xuw-empty">
+              <div class="xuw-empty__icon" aria-hidden="true">&#128269;</div>
+              <p>No products found.</p>
+            </div>
+          {%- endfor -%}
+        </div>
+        {%- if paginate.pages > 1 -%}
+          <nav class="xuw-pagination" aria-label="Product pages">
+            {%- if paginate.previous -%}
+              <a class="xuw-pg-btn" href="{{ paginate.previous.url }}" aria-label="Previous">&#8592;</a>
+            {%- endif -%}
+            {%- for part in paginate.parts -%}
+              {%- if part.is_link -%}
+                <a class="xuw-pg-btn" href="{{ part.url }}">{{ part.title }}</a>
+              {%- elsif part.title == paginate.current_page -%}
+                <span class="xuw-pg-btn is-active" aria-current="page">{{ part.title }}</span>
+              {%- else -%}
+                <span class="xuw-pg-btn xuw-pg-dots">{{ part.title }}</span>
+              {%- endif -%}
+            {%- endfor -%}
+            {%- if paginate.next -%}
+              <a class="xuw-pg-btn" href="{{ paginate.next.url }}" aria-label="Next">&#8594;</a>
+            {%- endif -%}
+          </nav>
+        {%- endif -%}
+      {%- endpaginate -%}
+
+    {%- else -%}
+
+      {%- comment %}
+      Homepage + all non-collection pages: for-loop with limit (Rule 5).
+      "View all" link shown when total exceeds the limit.
+      {% endcomment %}
+      <div class="xuw-product-grid xuw-grid--{{ grid_layout }}"
+           id="xuwGrid"
+           data-total="{{ col.products_count }}">
+        {%- for product in col.products limit: products_per_page -%}
+          {%- render 'xuw-product-card', product: product, show_vendor: show_vendor -%}
+        {%- else -%}
+          <div class="xuw-empty">
+            <div class="xuw-empty__icon" aria-hidden="true">&#128269;</div>
+            <p>No products found.</p>
+          </div>
+        {%- endfor -%}
+      </div>
+      {%- if col.products_count > products_per_page -%}
+        <p class="xuw-load-more-note" style="text-align:center;padding:20px 0;color:var(--xuw-muted);font-size:13px">
+          Showing {{ products_per_page }} of {{ col.products_count }} products.
+          <a href="{{ col.url }}" style="color:var(--xuw-crimson);text-decoration:none;margin-left:6px">
+            View all &#8594;
+          </a>
+        </p>
+      {%- endif -%}
+
+    {%- endif -%}
+
+  </div><!-- /.xuw-shop__main -->
+</div><!-- /.xuw-shop -->
+
+{% schema %}
+{
+  "name": "XUW Shop",
+  "tag": "section",
+  "class": "xuw-section xuw-section--shop",
+  "settings": [
+    { "type": "header",     "content": "Collection" },
+    { "type": "collection", "id": "collection",        "label": "Collection to display (leave blank for all products)" },
+    { "type": "range",      "id": "products_per_page", "label": "Products shown",        "min": 8, "max": 48, "step": 4, "default": 24 },
+    { "type": "checkbox",   "id": "show_vendor",       "label": "Show brand name",       "default": true },
+    { "type": "checkbox",   "id": "enable_filtering",  "label": "Show filter sidebar",   "default": true },
+    { "type": "checkbox",   "id": "enable_sorting",    "label": "Show sort dropdown",    "default": true },
+    { "type": "header",     "content": "Filter Style — 15 options (CSS: xuw-filter--s1 … s15)" },
+    { "type": "text",       "id": "filter_heading",    "label": "Sidebar heading",       "default": "Filters" },
+    {
+      "type": "select",
+      "id": "filter_style",
+      "label": "Filter sidebar style",
+      "default": "s1",
+      "options": [
+        { "value": "s1",  "label": "S1  — Sidebar Dark (default)" },
+        { "value": "s2",  "label": "S2  — Sidebar Glass (blur)" },
+        { "value": "s3",  "label": "S3  — Sidebar Minimal" },
+        { "value": "s4",  "label": "S4  — Sidebar Crimson Header" },
+        { "value": "s5",  "label": "S5  — Sidebar Gold Accent" },
+        { "value": "s6",  "label": "S6  — Sidebar Bordered Groups" },
+        { "value": "s7",  "label": "S7  — Sidebar Compact (200px)" },
+        { "value": "s8",  "label": "S8  — Sidebar Wide (300px)" },
+        { "value": "s9",  "label": "S9  — Sidebar Floating Card" },
+        { "value": "s10", "label": "S10 — Sidebar Right" },
+        { "value": "s11", "label": "S11 — Horizontal Bar (dropdowns)" },
+        { "value": "s12", "label": "S12 — Horizontal Chips" },
+        { "value": "s13", "label": "S13 — Horizontal Outline Bar" },
+        { "value": "s14", "label": "S14 — Drawer Panel (slide-in)" },
+        { "value": "s15", "label": "S15 — Tag Cloud Sidebar" }
+      ]
+    },
+    { "type": "header", "content": "Grid Layout — 15 options (CSS: xuw-grid--l1 … l15)" },
+    {
+      "type": "select",
+      "id": "grid_layout",
+      "label": "Product grid layout",
+      "default": "l1",
+      "options": [
+        { "value": "l1",  "label": "L1  — 4-col Standard" },
+        { "value": "l2",  "label": "L2  — 3-col Large Cards" },
+        { "value": "l3",  "label": "L3  — 5-col Compact" },
+        { "value": "l4",  "label": "L4  — 2-col Showcase" },
+        { "value": "l5",  "label": "L5  — List View (horizontal)" },
+        { "value": "l6",  "label": "L6  — Masonry-like" },
+        { "value": "l7",  "label": "L7  — Magazine (first card hero)" },
+        { "value": "l8",  "label": "L8  — Horizontal Carousel" },
+        { "value": "l9",  "label": "L9  — Dense 6-col" },
+        { "value": "l10", "label": "L10 — Minimal / Airy" },
+        { "value": "l11", "label": "L11 — Outlined Cards" },
+        { "value": "l12", "label": "L12 — Rounded Cards" },
+        { "value": "l13", "label": "L13 — Tight Flush Grid" },
+        { "value": "l14", "label": "L14 — Compact List (72px rows)" },
+        { "value": "l15", "label": "L15 — Mixed Hero (first 2 large)" }
+      ]
+    },
+    { "type": "header", "content": "Brand Colours" },
+    { "type": "color", "id": "color_crimson", "label": "Primary (crimson)", "default": "#8b4444" },
+    { "type": "color", "id": "color_gold",    "label": "Accent (gold)",     "default": "#ffcc00" },
+    { "type": "color", "id": "color_bg",      "label": "Background",        "default": "#000000" },
+    { "type": "color", "id": "color_text",    "label": "Text",              "default": "#ffffff" }
+  ],
+  "presets": [
+    { "name": "XUW Shop",   "category": "Products" },
+    { "name": "XUW Filter", "category": "Products" }
+  ]
+}
+{% endschema %}
